@@ -14,8 +14,9 @@ GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
 GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 GITHUB_USER_URL = "https://api.github.com/user"
 
-GITHUB_REDIRECT_URI = (
-    "https://quackgit.onrender.com/auth/github/callback"
+GITHUB_REDIRECT_URI = os.getenv(
+    "GITHUB_REDIRECT_URI",
+    "http://localhost:8000/auth/github/callback",
 )
 
 # Temporary OAuth state storage.
