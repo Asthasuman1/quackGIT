@@ -1,0 +1,21 @@
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.venv-linux/
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/
+
+ai-commit-platform*.pem

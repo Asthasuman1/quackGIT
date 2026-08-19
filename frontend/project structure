@@ -1,0 +1,21 @@
+frontend/
+│
+├── app/
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── page.tsx
+│
+├── components/
+│   ├── Navbar.tsx
+│   ├── Hero.tsx
+│   ├── Dashboard.tsx
+│   ├── Features.tsx
+│   ├── Prediction.tsx
+│   ├── Workflow.tsx
+│   ├── FAQ.tsx
+│   ├── CTA.tsx
+│   ├── Footer.tsx
+│   └── Background.tsx
+│
+├── public/
+└── package.json

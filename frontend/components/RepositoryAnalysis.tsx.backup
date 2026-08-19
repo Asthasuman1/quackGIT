@@ -1,0 +1,252 @@
+"use client";
+
+import { motion } from "framer-motion";
+import {
+  GitBranch,
+  Shield,
+  BrainCircuit,
+  Activity,
+  AlertTriangle,
+  CheckCircle,
+} from "lucide-react";
+import Reveal from "./animations/Reveal";
+import TiltCard from "./TiltCard";
+
+const checklist = [
+  "Analyze every commit automatically",
+  "Detect hidden security issues",
+  "Predict future production failures",
+  "Generate AI-powered review suggestions",
+];
+
+const statusCards = [
+  {
+    icon: GitBranch,
+    title: "Repository",
+    value: "payment-service",
+    color: "text-orange-400",
+  },
+  {
+    icon: BrainCircuit,
+    title: "AI Analysis",
+    value: "Running...",
+    color: "text-orange-400",
+  },
+  {
+    icon: Shield,
+    title: "Security",
+    value: "Passed",
+    color: "text-green-400",
+  },
+  {
+    icon: Activity,
+    title: "Performance",
+    value: "Good",
+    color: "text-orange-400",
+  },
+  {
+    icon: AlertTriangle,
+    title: "Predicted Failures",
+    value: "2 High Risk",
+    color: "text-red-400",
+  },
+];
+
+export default function RepositoryAnalysis() {
+  return (
+    <section className="mx-auto max-w-[1440px] px-8 py-36 lg:px-10">
+      <div className="grid items-center gap-20 lg:grid-cols-2">
+        {/* Left */}
+
+        <Reveal>
+          <div>
+            <span className="border-orange-500/30 bg-orange-500/10 px-5 py-2.5 text-base font-medium text-orange-300">
+              Live Repository Analysis
+            </span>
+
+            <h2 className="mt-8 text-5xl font-black leading-tight tracking-[-0.04em] sm:text-6xl">
+              AI Understands Your Repository
+              <span className="text-orange-400">
+                {" "}
+                Commit by Commit
+              </span>
+            </h2>
+
+            <p className="mt-8 max-w-xl text-xl leading-9 text-zinc-400">
+              quackGIT continuously scans commits, detects risky code
+              patterns, evaluates repository health, finds security issues,
+              and predicts production failures before deployment.
+            </p>
+
+            <div className="mt-12 space-y-6">
+              {checklist.map((item, index) => (
+                <motion.div
+                  key={item}
+                  initial={{
+                    opacity: 0,
+                    x: -20,
+                  }}
+                  whileInView={{
+                    opacity: 1,
+                    x: 0,
+                  }}
+                  viewport={{
+                    once: true,
+                  }}
+                  transition={{
+                    delay: index * 0.08,
+                  }}
+                  whileHover={{
+                    x: 8,
+                  }}
+                  className="flex items-center gap-5"
+                >
+                  <motion.div
+                    whileHover={{
+                      scale: 1.2,
+                      rotate: -10,
+                    }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 400,
+                    }}
+                  >
+                    <CheckCircle className="text-green-400" size={24} />
+                  </motion.div>
+
+                  <span className="text-lg text-zinc-300">
+                    {item}
+                  </span>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </Reveal>
+
+        {/* Right */}
+
+        <Reveal delay={0.15}>
+          <TiltCard>
+            <motion.div
+              whileHover={{
+                y: -10,
+                scale: 1.015,
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 280,
+                damping: 20,
+              }}
+              className="group relative overflow-hidden rounded-[32px] border border-white/10 bg-[#111111]/80 p-8 backdrop-blur-xl"
+            >
+              {/* Glow */}
+
+              <div
+                className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+                style={{
+                  background:
+                    "radial-gradient(circle at center, rgba(249,115,22,.18), transparent 70%)",
+                }}
+              />
+
+              {/* Border */}
+
+              <div className="pointer-events-none absolute inset-0 rounded-[32px] border border-transparent transition-all duration-500 group-hover:border-orange-500/40" />
+
+              <div className="relative space-y-5">
+                {statusCards.map((item) => {
+                  const Icon = item.icon;
+
+                  return (
+                    <motion.div
+                      key={item.title}
+                      whileHover={{
+                        y: -6,
+                        scale: 1.02,
+                      }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 320,
+                      }}
+                      className="flex items-center justify-between rounded-[24px] border border-white/10 bg-[#181818] p-6"
+                    >
+                      <div className="flex items-center gap-4">
+                        <motion.div
+                          whileHover={{
+                            rotate: -12,
+                            scale: 1.15,
+                          }}
+                          transition={{
+                            type: "spring",
+                            stiffness: 400,
+                          }}
+                        >
+                          <Icon
+                            size={24}
+                            className={item.color}
+                          />
+                        </motion.div>
+
+                        <span className="text-lg font-medium">
+                          {item.title}
+                        </span>
+                      </div>
+
+                      <span
+                        className={`font-semibold ${item.color}`}
+                      >
+                        {item.value}
+                      </span>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {/* Health */}
+
+              <div className="relative mt-10">
+                <div className="mb-3 flex justify-between text-base">
+                  <span className="text-zinc-400">
+                    Repository Health
+                  </span>
+
+                  <span className="font-semibold text-white">
+                    82%
+                  </span>
+                </div>
+
+                <div className="h-3 overflow-hidden rounded-full bg-zinc-800">
+                  <motion.div
+                    initial={{
+                      width: 0,
+                    }}
+                    whileInView={{
+                      width: "82%",
+                    }}
+                    viewport={{
+                      once: true,
+                    }}
+                    transition={{
+                      duration: 1.8,
+                    }}
+                    className="h-full rounded-full bg-gradient-to-r from-orange-500 via-orange-400 to-amber-300"
+                  />
+                </div>
+
+                <div className="mt-4 flex justify-between text-sm">
+                  <span className="text-zinc-500">
+                    Repository Score
+                  </span>
+
+                  <span className="font-medium text-orange-400">
+                    Excellent
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+          </TiltCard>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
