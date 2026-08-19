@@ -1,4 +1,4 @@
-import secrets
+import os
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -27,19 +27,25 @@ router = APIRouter(
 
 @router.get("/github/login")
 async def github_login():
-    code_verifier, code_challenge = (
-        create_pkce_pair()
-    )
+    """
+    Start GitHub OAuth login.
+
+    The OAuth state and PKCE verifier are stored server-side.
+    """
+
+    code_verifier, code_challenge = create_pkce_pair()
 
     state = create_oauth_state(
         code_verifier
     )
 
+    github_url = get_github_login_url(
+        state=state,
+        code_challenge=code_challenge,
+    )
+
     return RedirectResponse(
-        url=get_github_login_url(
-            state=state,
-            code_challenge=code_challenge,
-        )
+        url=github_url
     )
 
 
@@ -49,6 +55,10 @@ async def github_callback(
     code: str,
     state: str,
 ):
+    """
+    Handle GitHub OAuth callback.
+    """
+
     code_verifier = consume_oauth_state(
         state
     )
@@ -60,30 +70,44 @@ async def github_callback(
         )
 
     try:
+        # Exchange GitHub authorization code
+        # for an access token.
         token_data = await exchange_code_for_token(
             code=code,
             code_verifier=code_verifier,
         )
 
+        # Get authenticated GitHub user.
         user = await get_github_user(
             token_data["access_token"]
         )
 
+        # Create application session.
         session_id, _ = create_session(
             user=user,
             token_data=token_data,
         )
 
-        response = RedirectResponse(
-            url="http://localhost:3000"
+        # Production frontend URL comes from Render.
+        # Localhost remains the development fallback.
+        frontend_url = os.getenv(
+            "FRONTEND_URL",
+            "http://localhost:3000",
         )
 
+        response = RedirectResponse(
+            url=frontend_url
+        )
+
+        # Cross-domain cookie is required because:
+        # frontend = Vercel
+        # backend = Render
         response.set_cookie(
             key="ai_reviewer_session",
             value=session_id,
             httponly=True,
-            secure=False,
-            samesite="lax",
+            secure=True,
+            samesite="none",
             max_age=86400,
             path="/",
         )
@@ -101,6 +125,10 @@ async def github_callback(
 async def get_current_user(
     request: Request,
 ):
+    """
+    Return the currently authenticated user.
+    """
+
     session_id = request.cookies.get(
         "ai_reviewer_session"
     )
@@ -111,7 +139,9 @@ async def get_current_user(
             "user": None,
         }
 
-    session = get_session(session_id)
+    session = get_session(
+        session_id
+    )
 
     if not session:
         return {
@@ -136,12 +166,19 @@ async def get_current_user(
 async def logout(
     request: Request,
 ):
+    """
+    Destroy the current application session
+    and remove the browser session cookie.
+    """
+
     session_id = request.cookies.get(
         "ai_reviewer_session"
     )
 
     if session_id:
-        delete_session(session_id)
+        delete_session(
+            session_id
+        )
 
     response = JSONResponse(
         content={
@@ -150,9 +187,14 @@ async def logout(
         }
     )
 
+    # The cookie attributes must match the
+    # production cookie attributes used during login.
     response.delete_cookie(
         key="ai_reviewer_session",
         path="/",
+        secure=True,
+        httponly=True,
+        samesite="none",
     )
 
     return response
