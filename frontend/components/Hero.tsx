@@ -175,7 +175,7 @@ export default function Hero() {
     ? "Checking GitHub..."
     : authenticated && user
       ? `Continue as @${user.login}`
-      : "Get Started with GitHub"}
+      : "Get Started with Git"}
 </motion.button>
 
                 <motion.button
