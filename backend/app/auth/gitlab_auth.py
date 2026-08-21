@@ -104,7 +104,7 @@ def get_gitlab_login_url(
         "redirect_uri": GITLAB_REDIRECT_URI,
         "response_type": "code",
         "state": state,
-        "scope": "read_user api",
+        "scope": "read_user",
         "code_challenge": code_challenge,
         "code_challenge_method": "S256",
     }
