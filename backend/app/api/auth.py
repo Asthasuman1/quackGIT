@@ -12,6 +12,15 @@ from app.auth.github_auth import (
     get_github_user,
 )
 
+from app.auth.gitlab_auth import (
+    create_gitlab_pkce_pair,
+    create_gitlab_oauth_state,
+    consume_gitlab_oauth_state,
+    exchange_gitlab_code_for_token,
+    get_gitlab_login_url,
+    get_gitlab_user,
+)
+
 from app.auth.session import (
     create_session,
     delete_session,
@@ -121,6 +130,94 @@ async def github_callback(
         )
 
 
+@router.get("/gitlab/login")
+async def gitlab_login():
+    """
+    Start GitLab OAuth login.
+    """
+
+    code_verifier, code_challenge = (
+        create_gitlab_pkce_pair()
+    )
+
+    state = create_gitlab_oauth_state(
+        code_verifier
+    )
+
+    gitlab_url = get_gitlab_login_url(
+        state=state,
+        code_challenge=code_challenge,
+    )
+
+    return RedirectResponse(
+        url=gitlab_url
+    )
+
+
+@router.get("/gitlab/callback")
+async def gitlab_callback(
+    request: Request,
+    code: str,
+    state: str,
+):
+    """
+    Handle GitLab OAuth callback.
+    """
+
+    code_verifier = consume_gitlab_oauth_state(
+        state
+    )
+
+    if not code_verifier:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid or expired GitLab OAuth state",
+        )
+
+    try:
+        token_data = (
+            await exchange_gitlab_code_for_token(
+                code=code,
+                code_verifier=code_verifier,
+            )
+        )
+
+        user = await get_gitlab_user(
+            token_data["access_token"]
+        )
+
+        session_id, _ = create_session(
+            user=user,
+            token_data=token_data,
+        )
+
+        frontend_url = os.getenv(
+            "FRONTEND_URL",
+            "http://localhost:3000",
+        )
+
+        response = RedirectResponse(
+            url=frontend_url
+        )
+
+        response.set_cookie(
+            key="ai_reviewer_session",
+            value=session_id,
+            httponly=True,
+            secure=True,
+            samesite="none",
+            max_age=86400,
+            path="/",
+        )
+
+        return response
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e),
+        )
+
 @router.get("/me")
 async def get_current_user(
     request: Request,
@@ -193,7 +290,6 @@ async def logout(
         key="ai_reviewer_session",
         path="/",
         secure=True,
-        httponly=True,
         samesite="none",
     )
 
