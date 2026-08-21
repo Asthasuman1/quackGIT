@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useState } from "react";
 import { useAuth } from "@/lib/AuthProvider";
 import {
   GitBranch,
@@ -10,14 +11,18 @@ import {
 } from "lucide-react";
 import Reveal from "./animations/Reveal";
 import TiltCard from "./TiltCard";
+import ProviderModal from "./ProviderModal";
 
 export default function Hero() {
   const {
   user,
   authenticated,
   loading,
-  login,
+  loginWithGitHub,
+  loginWithGitLab,
 } = useAuth();
+
+const [showProviderModal, setShowProviderModal] = useState(false);
   const highlights = [
     {
       label: "Supports",
@@ -153,7 +158,7 @@ export default function Hero() {
               >
               <motion.button
   type="button"
-  onClick={login}
+  onClick={() => setShowProviderModal(true)}
   disabled={loading}
   whileHover={{
     y: -3,
@@ -267,6 +272,12 @@ export default function Hero() {
           </Reveal>
         </div>
       </section>
+       <ProviderModal
+         open={showProviderModal}
+         onClose={() => setShowProviderModal(false)}
+         loginWithGitHub={loginWithGitHub}
+         loginWithGitLab={loginWithGitLab}
+       />
     </div>
   );
 }

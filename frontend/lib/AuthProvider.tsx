@@ -12,6 +12,7 @@ import {
 import {
   getCurrentUser,
   getGitHubLoginUrl,
+  getGitLabLoginUrl,
   logout as logoutRequest,
   type AuthUser,
 } from "./auth";
@@ -20,7 +21,8 @@ interface AuthContextValue {
   user: AuthUser | null;
   authenticated: boolean;
   loading: boolean;
-  login: () => void;
+  loginWithGitHub: () => void;
+  loginWithGitLab: () => void;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
 }
@@ -56,9 +58,13 @@ export function AuthProvider({
     refreshAuth();
   }, [refreshAuth]);
 
-  const login = () => {
-    window.location.href = getGitHubLoginUrl();
-  };
+  const loginWithGitHub = () => {
+  window.location.href = getGitHubLoginUrl();
+};
+
+const loginWithGitLab = () => {
+  window.location.href = getGitLabLoginUrl();
+};
 
   const logout = async () => {
     try {
@@ -71,15 +77,16 @@ export function AuthProvider({
 
   return (
     <AuthContext.Provider
-      value={{
-        user,
-        authenticated,
-        loading,
-        login,
-        logout,
-        refreshAuth,
-      }}
-    >
+  value={{
+    user,
+    authenticated,
+    loading,
+    loginWithGitHub,
+    loginWithGitLab,
+    logout,
+    refreshAuth,
+  }}
+>
       {children}
     </AuthContext.Provider>
   );

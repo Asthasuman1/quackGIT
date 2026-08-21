@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { LogOut, Menu } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
+import ProviderModal from "./ProviderModal";
 
 const navItems = [
   { name: "Features", href: "#features" },
@@ -13,15 +14,17 @@ const navItems = [
 
 export default function Navbar() {
   const {
-    user,
-    authenticated,
-    loading,
-    login,
-    logout,
-  } = useAuth();
+  user,
+  authenticated,
+  loading,
+  loginWithGitHub,
+  loginWithGitLab,
+  logout,
+} = useAuth();
 
   const [scrolled, setScrolled] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [showProviderModal, setShowProviderModal] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -37,6 +40,7 @@ export default function Navbar() {
   }, []);
 
   async function handleLogout() {
+    
   try {
     setLoggingOut(true);
 
@@ -51,6 +55,10 @@ export default function Navbar() {
     setLoggingOut(false);
   }
 }
+
+const handleLogin = () => {
+  setShowProviderModal(true);
+};
 
   return (
     <motion.header
@@ -177,7 +185,7 @@ export default function Navbar() {
             /* Login */
             <motion.button
               type="button"
-              onClick={login}
+              onClick={handleLogin}
               whileHover={{
                 scale: 1.05,
                 y: -3,
@@ -242,8 +250,8 @@ export default function Navbar() {
             </>
           ) : (
             <motion.button
-              type="button"
-              onClick={login}
+  type="button"
+  onClick={handleLogin}
               whileTap={{
                 scale: 0.95,
               }}
@@ -273,6 +281,12 @@ export default function Navbar() {
           </motion.button>
         </div>
       </div>
+             <ProviderModal
+        open={showProviderModal}
+        onClose={() => setShowProviderModal(false)}
+        loginWithGitHub={loginWithGitHub}
+        loginWithGitLab={loginWithGitLab}
+      />    
     </motion.header>
   );
 }

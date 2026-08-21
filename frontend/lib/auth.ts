@@ -34,6 +34,10 @@ export function getGitHubLoginUrl(): string {
   return `${API_BASE_URL}/auth/github/login`;
 }
 
+export function getGitLabLoginUrl(): string {
+  return `${API_BASE_URL}/auth/gitlab/login`;
+}
+
 export async function logout(): Promise<void> {
   const response = await fetch(
     `${API_BASE_URL}/auth/logout`,
