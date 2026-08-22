@@ -25,6 +25,7 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [showProviderModal, setShowProviderModal] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -262,31 +263,69 @@ const handleLogin = () => {
           )}
 
           <motion.button
-            type="button"
-            whileHover={{
-              scale: 1.08,
-              rotate: 5,
-            }}
-            whileTap={{
-              scale: 0.95,
-            }}
-            transition={{
-              type: "spring",
-              stiffness: 350,
-            }}
-            className="rounded-2xl border border-white/10 bg-white/5 p-3 text-white backdrop-blur transition-colors hover:border-orange-500/40 hover:bg-orange-500/10"
-            aria-label="Open menu"
-          >
-            <Menu size={24} />
-          </motion.button>
+  type="button"
+  onClick={() => setMenuOpen((open) => !open)}
+  whileHover={{
+    scale: 1.08,
+    rotate: 5,
+  }}
+  whileTap={{
+    scale: 0.95,
+  }}
+  transition={{
+    type: "spring",
+    stiffness: 350,
+  }}
+  className="rounded-2xl border border-white/10 bg-white/5 p-3 text-white backdrop-blur transition-colors hover:border-orange-500/40 hover:bg-orange-500/10"
+  aria-label={menuOpen ? "Close menu" : "Open menu"}
+  aria-expanded={menuOpen}
+>
+  <Menu size={24} />
+</motion.button>
         </div>
-      </div>
-             <ProviderModal
+            </div>
+
+      {menuOpen && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          className="border-t border-white/10 bg-black/95 px-6 py-5 backdrop-blur-3xl lg:hidden"
+        >
+          <nav className="flex flex-col gap-2">
+            {navItems.map((item) => (
+              <a
+                key={item.name}
+                href={item.href}
+                onClick={() => setMenuOpen(false)}
+                className="rounded-xl px-4 py-3 text-base font-medium text-zinc-300 transition hover:bg-white/5 hover:text-white"
+              >
+                {item.name}
+              </a>
+            ))}
+
+            {!authenticated && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setShowProviderModal(true);
+                }}
+                className="mt-2 rounded-xl bg-orange-500 px-4 py-3 text-center text-base font-semibold text-white"
+              >
+                Login
+              </button>
+            )}
+          </nav>
+        </motion.div>
+      )}
+
+      <ProviderModal
         open={showProviderModal}
         onClose={() => setShowProviderModal(false)}
         loginWithGitHub={loginWithGitHub}
         loginWithGitLab={loginWithGitLab}
-      />    
+      />
     </motion.header>
   );
 }

@@ -106,11 +106,11 @@ const [showProviderModal, setShowProviderModal] = useState(false);
                   duration: 0.8,
                   ease: "easeOut",
                 }}
-                className="mt-8 max-w-[1080px] text-[56px] font-black leading-[0.92] tracking-[-0.05em] text-white sm:text-[68px] md:text-[78px] lg:text-[88px] xl:text-[96px]"
+                className="mt-8 w-full max-w-[1080px] text-[clamp(3rem,11vw,6rem)] font-black leading-[1] tracking-[-0.05em] text-white sm:text-[68px] md:text-[78px] lg:text-[88px] xl:text-[96px]"
               >
                 <span className="block">Predict</span>
 
-                <span className="block bg-gradient-to-r from-orange-400 via-orange-500 to-amber-300 bg-clip-text text-transparent">
+                <span className="block bg-gradient-to-r from-orange-400 via-orange-500 to-amber-300 bg-clip-text pb-[0.12em] text-transparent">
                   Tomorrow&apos;s Bugs
                 </span>
 
