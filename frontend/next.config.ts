@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/backend/:path*",
-        destination: "https://quackgit.onrender.com/:path*",
+        destination: "https://quackgit.up.railway.app/:path*",
       },
     ];
   },
