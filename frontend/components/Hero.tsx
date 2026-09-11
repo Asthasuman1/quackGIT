@@ -182,25 +182,6 @@ export default function Hero() {
       ? `Continue as @${user.login}`
       : "Get Started with Git"}
 </motion.button>
-
-                <motion.button
-                  whileHover={{
-                    y: -3,
-                    scale: 1.02,
-                  }}
-                  whileTap={{
-                    scale: 0.98,
-                  }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 350,
-                    damping: 18,
-                  }}
-                  className="inline-flex h-14 items-center gap-3 rounded-xl border border-white/15 bg-white/[0.02] px-7 text-base font-semibold text-white backdrop-blur-xl transition-all duration-300 hover:border-orange-500/40 hover:bg-orange-500/[0.05] sm:px-8"
-                >
-                  <Play size={18} />
-                  Live Demo
-                </motion.button>
               </motion.div>
 
               {/* Feature cards */}
