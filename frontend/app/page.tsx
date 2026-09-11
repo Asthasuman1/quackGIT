@@ -29,11 +29,10 @@ export default function Home() {
       <div className="relative z-10 flex flex-col gap-32 lg:gap-36">
         <Features />
         <Workflow />
-        <Prediction />
+        
         <Comparison />
         
         <FAQ />
-        <CTA />
       </div>
 
       {/* Footer */}
