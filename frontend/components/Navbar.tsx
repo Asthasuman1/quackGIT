@@ -132,6 +132,14 @@ const handleLogin = () => {
             </motion.a>
           ))}
 
+          {/* VS Code Download */}
+<a
+  href="/quackgit-0.1.0.vsix"
+  download
+  className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-semibold text-zinc-300 transition-all duration-300 hover:border-orange-500/40 hover:bg-orange-500/10 hover:text-white"
+>
+  💻 VS Code
+</a>
           {/* Authentication */}
           {loading ? (
             <div className="h-12 w-28 animate-pulse rounded-2xl bg-white/10" />
