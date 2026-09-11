@@ -11,14 +11,21 @@ router = APIRouter(
 
 class PredictionRequest(BaseModel):
     diff: str
+    filename: str = "current-file"
+    language: str = "unknown"
+    mode: str = "source"
 
 
 @router.post("/")
 async def predict_failure(request: PredictionRequest):
     try:
         service = FailurePredictionService()
-
-        result = await service.predict(request.diff)
+        result = await service.predict(
+            request.diff,
+            filename=request.filename,
+            language=request.language,
+            mode=request.mode,
+        )
 
         return {
             "status": "success",
@@ -26,8 +33,4 @@ async def predict_failure(request: PredictionRequest):
         }
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=str(e),
-        )
-        
+        raise HTTPException(status_code=500, detail=str(e))

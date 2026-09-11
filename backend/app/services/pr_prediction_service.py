@@ -8,10 +8,7 @@ class PRPredictionService:
         self.prediction = FailurePredictionService()
 
     async def predict_pr(self, repo_name: str, pr_number: int):
-        files = self.github.get_pull_request_files(
-            repo_name,
-            pr_number,
-        )
+        files = self.github.get_pull_request_files(repo_name, pr_number)
 
         patches = []
 
@@ -25,10 +22,13 @@ class PRPredictionService:
                 )
 
         if not patches:
-            raise ValueError(
-                "No patch data was available for this pull request."
-            )
+            raise ValueError("No patch data was available for this pull request.")
 
         diff = "\n\n====================\n\n".join(patches)
 
-        return await self.prediction.predict(diff)
+        return await self.prediction.predict(
+            diff,
+            filename="multiple PR files",
+            language="mixed",
+            mode="pull_request",
+        )
