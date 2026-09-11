@@ -1,5 +1,5 @@
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://quackgit.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL || "https://quackgit.up.railway.app";
 
 export type AuthUser = {
   id: number;

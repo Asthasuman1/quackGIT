@@ -113,7 +113,7 @@ export function activate(
           editor.document.languageId;
 
         const endpoint =
-          "https://quackgit.onrender.com/prediction/";
+          "https://quackgit.up.railway.app/prediction/";
 
         await vscode.window.withProgress(
           {
