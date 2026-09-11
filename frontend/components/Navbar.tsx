@@ -232,6 +232,13 @@ const handleLogin = () => {
 
         {/* Mobile */}
         <div className="flex items-center gap-3 lg:hidden">
+          <a
+  href="/quackgit-0.1.0.vsix"
+  download
+  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-zinc-300 transition hover:border-orange-500/40 hover:bg-orange-500/10 hover:text-white"
+>
+  Start with VS Code
+</a>
           {loading ? (
             <div className="h-10 w-10 animate-pulse rounded-full bg-white/10" />
           ) : authenticated && user ? (
