@@ -19,10 +19,11 @@ export default function Home() {
       {/* Navigation */}
       <Navbar />
 
-      <RepositoryAnalysis />
-
       {/* Hero */}
       <Hero />
+
+      {/*  LIVE REPOSITORY ANALYSIS */}
+      <RepositoryAnalysis />
 
       {/* Main Content */}
       <div className="relative z-10 flex flex-col gap-32 lg:gap-36">
