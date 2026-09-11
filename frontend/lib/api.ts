@@ -1,26 +1,37 @@
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_URL || "https://quackgit.onrender.com";
 
 export async function getRepositories() {
-  const response = await fetch(`${API_BASE_URL}/github/repos`);
+  const response = await fetch(`${API_BASE_URL}/github/repos`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error("Failed to load repositories");
+    throw new Error(data.detail || "Failed to load repositories");
   }
 
-  return response.json();
+  return data;
 }
 
 export async function getPullRequests(repoName: string) {
   const response = await fetch(
-    `${API_BASE_URL}/github/pulls/${encodeURIComponent(repoName)}`
+    `${API_BASE_URL}/github/pulls/${encodeURIComponent(repoName)}`,
+    {
+      credentials: "include",
+      cache: "no-store",
+    }
   );
 
+  const data = await response.json().catch(() => ({}));
+
   if (!response.ok) {
-    throw new Error("Failed to load pull requests");
+    throw new Error(data.detail || "Failed to load pull requests");
   }
 
-  return response.json();
+  return data;
 }
 
 export async function predictPullRequest(
@@ -34,10 +45,11 @@ export async function predictPullRequest(
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: "include",
     }
   );
 
-  const data = await response.json();
+  const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
     throw new Error(data.detail || "Failed to analyze pull request");

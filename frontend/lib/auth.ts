@@ -1,5 +1,5 @@
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "/api/backend";
+  process.env.NEXT_PUBLIC_API_URL || "https://quackgit.onrender.com";
 
 export type AuthUser = {
   id: number;
@@ -14,14 +14,10 @@ export type AuthResponse = {
 };
 
 export async function getCurrentUser(): Promise<AuthResponse> {
-  const response = await fetch(
-    `${API_BASE_URL}/auth/me`,
-    {
-      method: "GET",
-      credentials: "include",
-      cache: "no-store",
-    }
-  );
+  const response = await fetch(`${API_BASE_URL}/auth/me`, {
+    credentials: "include",
+    cache: "no-store",
+  });
 
   if (!response.ok) {
     throw new Error("Failed to check authentication");
@@ -39,14 +35,10 @@ export function getGitLabLoginUrl(): string {
 }
 
 export async function logout(): Promise<void> {
-  const response = await fetch(
-    `${API_BASE_URL}/auth/logout`,
-    {
-      method: "POST",
-      credentials: "include",
-      cache: "no-store",
-    }
-  );
+  const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+  });
 
   if (!response.ok) {
     throw new Error("Failed to logout");

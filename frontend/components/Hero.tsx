@@ -15,60 +15,60 @@ import ProviderModal from "./ProviderModal";
 
 export default function Hero() {
   const {
-  user,
-  authenticated,
-  loading,
-  loginWithGitHub,
-  loginWithGitLab,
-} = useAuth();
+    user,
+    authenticated,
+    loading,
+    loginWithGitHub,
+    loginWithGitLab,
+  } = useAuth();
 
-const [showProviderModal, setShowProviderModal] = useState(false);
-  const highlights = [
-    {
-      label: "Supports",
-      value: "Git Repositories",
-      description:
-        "Connect and analyze any public or private GitHub repository.",
-      icon: GitBranch,
-    },
-    {
-      label: "AI Capability",
-      value: "Future Failure Prediction",
-      description:
-        "AI models predict potential failures before they impact production.",
-      icon: TrendingUp,
-    },
-    {
-      label: "Focus",
-      value: "Secure Code Reviews",
-      description:
-        "AI-powered security analysis and code quality reviews.",
-      icon: ShieldCheck,
-    },
-  ];
+  const [showProviderModal, setShowProviderModal] = useState(false);
+    const highlights = [
+      {
+        label: "Supports",
+        value: "Git Repositories",
+        description:
+          "Connect and analyze any public or private GitHub repository.",
+        icon: GitBranch,
+      },
+      {
+        label: "AI Capability",
+        value: "Future Failure Prediction",
+        description:
+          "AI models predict potential failures before they impact production.",
+        icon: TrendingUp,
+      },
+      {
+        label: "Focus",
+        value: "Secure Code Reviews",
+        description:
+          "AI-powered security analysis and code quality reviews.",
+        icon: ShieldCheck,
+      },
+    ];
 
-  return (
-    <div className="relative overflow-hidden">
-      {/* Background atmosphere */}
-      <div className="pointer-events-none absolute left-[-180px] top-[120px] -z-10 h-[600px] w-[600px] rounded-full bg-orange-500/[0.055] blur-[190px]" />
+    return (
+      <div className="relative overflow-hidden">
+        {/* Background atmosphere */}
+        <div className="pointer-events-none absolute left-[-180px] top-[120px] -z-10 h-[600px] w-[600px] rounded-full bg-orange-500/[0.055] blur-[190px]" />
 
-      <div className="pointer-events-none absolute right-[-180px] top-[80px] -z-10 h-[650px] w-[650px] rounded-full bg-orange-500/[0.08] blur-[210px]" />
+        <div className="pointer-events-none absolute right-[-180px] top-[80px] -z-10 h-[650px] w-[650px] rounded-full bg-orange-500/[0.08] blur-[210px]" />
 
-      <div className="pointer-events-none absolute left-[42%] top-[45%] -z-10 h-[450px] w-[600px] rounded-full bg-orange-500/[0.025] blur-[180px]" />
+        <div className="pointer-events-none absolute left-[42%] top-[45%] -z-10 h-[450px] w-[600px] rounded-full bg-orange-500/[0.025] blur-[180px]" />
 
-      {/* Decorative rings */}
-      <div className="pointer-events-none absolute -right-[400px] top-[290px] -z-10 h-[900px] w-[900px] rounded-full border border-orange-500/[0.10]" />
+        {/* Decorative rings */}
+        <div className="pointer-events-none absolute -right-[400px] top-[290px] -z-10 h-[900px] w-[900px] rounded-full border border-orange-500/[0.10]" />
 
-      <div className="pointer-events-none absolute -right-[330px] top-[365px] -z-10 h-[760px] w-[760px] rounded-full border border-orange-500/[0.08]" />
+        <div className="pointer-events-none absolute -right-[330px] top-[365px] -z-10 h-[760px] w-[760px] rounded-full border border-orange-500/[0.08]" />
 
-      <div className="pointer-events-none absolute -right-[265px] top-[430px] -z-10 h-[620px] w-[620px] rounded-full border border-orange-500/[0.06]" />
+        <div className="pointer-events-none absolute -right-[265px] top-[430px] -z-10 h-[620px] w-[620px] rounded-full border border-orange-500/[0.06]" />
 
-      <section className="relative flex min-h-screen items-center px-5 pb-20 pt-32 sm:px-8 lg:px-12 xl:px-16">
-        <div className="mx-auto w-full max-w-[1450px]">
-          <Reveal>
-            <div className="relative">
-              {/* Badge */}
-              <motion.div
+        <section className="relative flex min-h-screen items-center px-5 pb-20 pt-32 sm:px-8 lg:px-12 xl:px-16">
+          <div className="mx-auto w-full max-w-[1450px]">
+            <Reveal>
+              <div className="relative">
+                {/* Badge */}
+                <motion.div
                 initial={{
                   opacity: 0,
                   y: 18,
