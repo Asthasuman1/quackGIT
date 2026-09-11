@@ -19,6 +19,8 @@ export default function Home() {
       {/* Navigation */}
       <Navbar />
 
+      <RepositoryAnalysis />
+
       {/* Hero */}
       <Hero />
 
@@ -28,7 +30,7 @@ export default function Home() {
         <Workflow />
         <Prediction />
         <Comparison />
-        <RepositoryAnalysis />
+        
         <FAQ />
         <CTA />
       </div>
