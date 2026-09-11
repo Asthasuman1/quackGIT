@@ -6,7 +6,7 @@ export default function Footer() {
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-6 md:flex-row">
         <div>
           <h2 className="text-2xl font-black">
-            AI <span className="text-orange-400">Commit</span>
+            quackGIT <span className="text-orange-400"></span>
           </h2>
 
           <p className="mt-2 text-xl text-zinc-500">
