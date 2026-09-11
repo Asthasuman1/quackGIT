@@ -3,7 +3,34 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-Severity = Literal["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+Severity = Literal[
+    "CRITICAL",
+    "HIGH",
+    "MEDIUM",
+    "LOW",
+    "INFO",
+]
+
+FindingType = Literal[
+    "RUNTIME",
+    "LOGIC",
+    "DATABASE",
+    "CONCURRENCY",
+    "PERFORMANCE",
+    "MEMORY_RESOURCE",
+    "API_INTEGRATION",
+    "SECURITY",
+    "AUTHENTICATION",
+    "AUTHORIZATION",
+    "DATA_VALIDATION",
+    "CONFIGURATION",
+    "CI_CD",
+    "BUILD_DEPENDENCY",
+    "RELIABILITY",
+    "OBSERVABILITY",
+    "TESTING",
+    "OTHER",
+]
 
 
 class FindingLocation(BaseModel):
@@ -15,8 +42,10 @@ class FindingLocation(BaseModel):
 
 class AnalysisFinding(BaseModel):
     title: str
+    finding_type: FindingType
     severity: Severity
     location: FindingLocation
+
     what_is_wrong: str
     why_it_is_wrong: str
     why_it_happens: str
@@ -29,17 +58,38 @@ class FutureFailureFinding(AnalysisFinding):
 
 
 class SecurityAnalysis(BaseModel):
-    status: Literal["issues_found", "no_meaningful_issues"] = "no_meaningful_issues"
-    findings: list[AnalysisFinding] = Field(default_factory=list)
+    status: Literal[
+        "issues_found",
+        "no_meaningful_issues",
+    ] = "no_meaningful_issues"
+
+    findings: list[AnalysisFinding] = Field(
+        default_factory=list
+    )
 
 
 class TestingAnalysis(BaseModel):
-    status: Literal["tests_needed", "no_meaningful_gaps"] = "no_meaningful_gaps"
-    findings: list[AnalysisFinding] = Field(default_factory=list)
+    status: Literal[
+        "tests_needed",
+        "no_meaningful_gaps",
+    ] = "no_meaningful_gaps"
+
+    findings: list[AnalysisFinding] = Field(
+        default_factory=list
+    )
 
 
 class FailurePredictionResponse(BaseModel):
     summary: str
-    predictions: list[FutureFailureFinding] = Field(default_factory=list)
-    security_analysis: SecurityAnalysis = Field(default_factory=SecurityAnalysis)
-    testing_analysis: TestingAnalysis = Field(default_factory=TestingAnalysis)
+
+    predictions: list[FutureFailureFinding] = Field(
+        default_factory=list
+    )
+
+    security_analysis: SecurityAnalysis = Field(
+        default_factory=SecurityAnalysis
+    )
+
+    testing_analysis: TestingAnalysis = Field(
+        default_factory=TestingAnalysis
+    )

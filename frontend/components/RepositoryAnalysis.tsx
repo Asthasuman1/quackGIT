@@ -38,6 +38,7 @@ type Location = {
 
 type Finding = {
   title: string;
+  finding_type?: string;
   severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO" | string;
   location?: Location;
   what_is_wrong?: string;
@@ -62,10 +63,10 @@ type AnalysisResult = {
 };
 
 const checklist = [
-  "Predict future production failures",
-  "Detect evidence-based security issues",
-  "Identify meaningful testing gaps",
-  "Explain exactly where and how to fix each finding",
+  "Identify deep and non-obvious failure risks",
+  "Detect evidence-based security weaknesses",
+  "Identify meaningful test coverage gaps",
+  "Pinpoint the affected code and recommended remediation",
 ];
 
 const severityRank: Record<string, number> = {
@@ -89,6 +90,31 @@ function severityClass(severity: string) {
     default:
       return "border-white/10 bg-white/5 text-zinc-300";
   }
+}
+
+function formatFindingType(type?: string) {
+  if (!type) return "Unclassified";
+
+  const labels: Record<string, string> = {
+    CI_CD: "CI/CD",
+    API_INTEGRATION: "API Integration",
+    BUILD_DEPENDENCY: "Build / Dependency",
+    MEMORY_RESOURCE: "Memory / Resource",
+    DATA_VALIDATION: "Data Validation",
+  };
+
+  if (labels[type]) {
+    return labels[type];
+  }
+
+  return type
+    .toLowerCase()
+    .split("_")
+    .map(
+      (word) =>
+        word.charAt(0).toUpperCase() + word.slice(1)
+    )
+    .join(" ");
 }
 
 function FindingCard({
@@ -139,7 +165,7 @@ function FindingCard({
 
       <div className="mt-4 rounded-xl border border-white/5 bg-black/20 p-4">
         <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-          Exactly where
+          Location
         </p>
 
         <p className="mt-1 break-words text-sm text-zinc-200">
@@ -148,25 +174,30 @@ function FindingCard({
       </div>
 
       <div className="mt-4 space-y-4">
-        <Detail
-          label="What is wrong"
-          value={finding.what_is_wrong}
-        />
+  <Detail
+    label="Finding Type"
+    value={formatFindingType(finding.finding_type)}
+  />
 
-        <Detail
-          label="Why it is wrong"
-          value={finding.why_it_is_wrong}
-        />
+  <Detail
+    label="Finding"
+    value={finding.what_is_wrong}
+  />
 
-        <Detail
-          label="Why it happens"
-          value={finding.why_it_happens}
-        />
+       <Detail
+  label="Technical Rationale"
+  value={finding.why_it_is_wrong}
+/>
 
-        <Detail
-          label="What it can cause"
-          value={finding.what_it_can_cause}
-        />
+<Detail
+  label="Root Cause"
+  value={finding.why_it_happens}
+/>
+
+<Detail
+  label="Potential Impact"
+  value={finding.what_it_can_cause}
+/>
 
         {finding.time_horizon && (
           <Detail
@@ -178,7 +209,7 @@ function FindingCard({
 
       <div className="mt-5 rounded-xl border border-green-500/15 bg-green-500/5 p-4">
         <p className="text-xs font-medium uppercase tracking-wider text-green-400">
-          How to fix
+          Recommended Solution
         </p>
 
         <p className="mt-2 text-sm leading-6 text-zinc-300">
@@ -715,7 +746,7 @@ export default function RepositoryAnalysis() {
                     <AnalysisSection
                       icon={BrainCircuit}
                       title="Future Failure Analysis"
-                      description="Code-grounded failure mechanisms that may surface later in production."
+                      description="Deep, code-grounded failure mechanisms that may emerge under specific runtime conditions."
                       findings={predictions}
                     />
 
@@ -731,7 +762,7 @@ export default function RepositoryAnalysis() {
                     <AnalysisSection
                       icon={Activity}
                       title="Testing Analysis"
-                      description="Meaningful missing or weak tests supported by the code being analyzed."
+                      description="Meaningful test coverage gaps for behavior affected by the analyzed changes."
                       findings={testing}
                     />
 
