@@ -606,7 +606,7 @@ export default function RepositoryAnalysis() {
               </div>
             ) : !authenticated ? (
               <div className="rounded-2xl border border-white/10 bg-[#181818] p-6 text-zinc-400">
-                Sign in with GitHub to load
+                Sign in with GitHub/Gitlab to load
                 repositories and pull requests.
               </div>
             ) : (
