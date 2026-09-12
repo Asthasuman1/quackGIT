@@ -592,16 +592,7 @@ export default function RepositoryAnalysis() {
                 authentication.
               </p>
 
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.href =
-                    "https://quackgit.onrender.com/auth/github/login";
-                }}
-                className="mt-4 rounded-xl bg-orange-500 px-5 py-3 font-semibold text-black hover:bg-orange-400"
-              >
-                Connect GitHub
-              </button>
+              
             </div>
           )}
         </div>
