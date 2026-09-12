@@ -232,13 +232,6 @@ const handleLogin = () => {
 
         {/* Mobile */}
         <div className="flex items-center gap-3 lg:hidden">
-          <a
-  href="/quackgit-0.1.0.vsix"
-  download
-  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-zinc-300 transition hover:border-orange-500/40 hover:bg-orange-500/10 hover:text-white"
->
-  Start with VS Code
-</a>
           {loading ? (
             <div className="h-10 w-10 animate-pulse rounded-full bg-white/10" />
           ) : authenticated && user ? (
@@ -308,6 +301,14 @@ const handleLogin = () => {
           className="border-t border-white/10 bg-black/95 px-6 py-5 backdrop-blur-3xl lg:hidden"
         >
           <nav className="flex flex-col gap-2">
+             <a
+              href="/quackgit-0.1.0.vsix"
+              download
+              onClick={() => setMenuOpen(false)}
+              className="rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-3 text-base font-semibold text-orange-300 transition hover:bg-orange-500/15 hover:text-orange-200"
+              >
+                Start with VS Code
+              </a>
             {navItems.map((item) => (
               <a
                 key={item.name}
