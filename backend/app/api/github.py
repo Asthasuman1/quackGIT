@@ -9,11 +9,6 @@ router = APIRouter(prefix="/github", tags=["GitHub"])
 
 
 def get_github_service(request: Request) -> GitHubService:
-    """
-    Create a GitHubService using the GitHub access token
-    belonging to the currently authenticated user.
-    """
-
     session_id = request.cookies.get("ai_reviewer_session")
 
     if not session_id:
