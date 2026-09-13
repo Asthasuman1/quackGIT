@@ -1,5 +1,4 @@
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://quackgit.onrender.com";
+const API_BASE_URL = "/api/backend";
 
 export async function getRepositories() {
   const response = await fetch(`${API_BASE_URL}/github/repos`, {
