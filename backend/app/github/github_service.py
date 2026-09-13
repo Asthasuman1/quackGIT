@@ -1,10 +1,12 @@
 from github import Github
-import os
 
 
 class GitHubService:
-    def __init__(self):
-        self.client = Github(os.getenv("GITHUB_TOKEN"))
+    def __init__(self, access_token: str):
+        if not access_token:
+            raise ValueError("GitHub access token is required")
+
+        self.client = Github(access_token)
 
     def get_user(self):
         return self.client.get_user().login
