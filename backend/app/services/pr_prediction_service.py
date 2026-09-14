@@ -3,7 +3,7 @@ from app.services.failure_prediction_service import FailurePredictionService
 
 
 class PRPredictionService:
-    def __init__(self):
+    def __init__(self, access_token: str):
         self.github = GitHubService()
         self.prediction = FailurePredictionService()
 

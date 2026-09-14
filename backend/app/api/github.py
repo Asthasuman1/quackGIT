@@ -126,9 +126,11 @@ async def predict_pull_request(
         # Verify that the current user has a valid GitHub session.
         # This prevents unauthenticated users from triggering
         # repository/PR analysis.
-        get_github_service(request)
+        github = get_github_service(request)
 
-        service = PRPredictionService()
+        service = PRPredictionService(
+            github.access_token
+        )
 
         result = await service.predict_pr(
             repo_name,

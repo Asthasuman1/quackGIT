@@ -6,7 +6,9 @@ class GitHubService:
         if not access_token:
             raise ValueError("GitHub access token is required")
 
+        self.access_token = access_token
         self.client = Github(access_token)
+        
 
     def get_user(self):
         return self.client.get_user().login
