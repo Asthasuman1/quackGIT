@@ -103,6 +103,7 @@ def get_github_login_url(
     "state": state,
     "code_challenge": code_challenge,
     "code_challenge_method": "S256",
+    "scope": "repo",
     "prompt": "login",
 }
 
