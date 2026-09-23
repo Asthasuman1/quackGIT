@@ -1,5 +1,6 @@
 import json
 import re
+import os
 
 from litellm import acompletion
 
@@ -9,9 +10,15 @@ from app.models.prediction import FailurePredictionResponse
 class FailurePredictionService:
     def __init__(
         self,
-        model: str = "gemini/gemini-3.1-flash-lite",
+        model: str = "groq/openai/gpt-oss-120b",
     ):
         self.model = model
+        self.api_key = os.getenv("GROQ_API_KEY")
+
+        if not self.api_key:
+            raise RuntimeError(
+                "GROQ_API_KEY environment variable is not configured."
+            )
 
     async def predict(
         self,
@@ -733,6 +740,7 @@ SOURCE / PATCH:
 
         response = await acompletion(
             model=self.model,
+            api_key=self.api_key,
             messages=[
                 {
                     "role": "user",
