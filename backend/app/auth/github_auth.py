@@ -16,7 +16,7 @@ GITHUB_USER_URL = "https://api.github.com/user"
 
 GITHUB_REDIRECT_URI = os.getenv(
     "GITHUB_REDIRECT_URI",
-    "http://localhost:8000/auth/github/callback",
+    "https://quackgit.vercel.app/api/backend/auth/github/callback",
 )
 
 # Temporary OAuth state storage.

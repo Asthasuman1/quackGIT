@@ -5,11 +5,21 @@ from app.auth.session import get_session
 from app.services.pr_prediction_service import PRPredictionService
 
 
-router = APIRouter(prefix="/github", tags=["GitHub"])
+router = APIRouter(
+    prefix="/github",
+    tags=["GitHub"],
+)
 
 
 def get_github_service(request: Request) -> GitHubService:
-    session_id = request.cookies.get("ai_reviewer_session")
+    """
+    Build a GitHubService using the access token stored in the
+    authenticated application session.
+    """
+
+    session_id = request.cookies.get(
+        "ai_reviewer_session"
+    )
 
     if not session_id:
         raise HTTPException(
@@ -25,7 +35,9 @@ def get_github_service(request: Request) -> GitHubService:
             detail="Invalid or expired session",
         )
 
-    access_token = session.get("access_token")
+    access_token = session.get(
+        "access_token"
+    )
 
     if not access_token:
         raise HTTPException(
@@ -33,13 +45,23 @@ def get_github_service(request: Request) -> GitHubService:
             detail="GitHub access token not available",
         )
 
-    return GitHubService(access_token)
+    return GitHubService(
+        access_token
+    )
 
+
+# ============================================================
+# Current GitHub user
+# ============================================================
 
 @router.get("/user")
-async def get_user(request: Request):
+async def get_user(
+    request: Request,
+):
     try:
-        github = get_github_service(request)
+        github = get_github_service(
+            request
+        )
 
         return {
             "user": github.get_user()
@@ -55,10 +77,18 @@ async def get_user(request: Request):
         )
 
 
+# ============================================================
+# Repositories
+# ============================================================
+
 @router.get("/repos")
-async def get_repositories(request: Request):
+async def get_repositories(
+    request: Request,
+):
     try:
-        github = get_github_service(request)
+        github = get_github_service(
+            request
+        )
 
         return github.get_repositories()
 
@@ -72,15 +102,25 @@ async def get_repositories(request: Request):
         )
 
 
-@router.get("/pulls/{repo_name:path}")
+# ============================================================
+# Pull requests
+# ============================================================
+
+@router.get(
+    "/pulls/{repo_name:path}"
+)
 async def get_pull_requests(
     repo_name: str,
     request: Request,
 ):
     try:
-        github = get_github_service(request)
+        github = get_github_service(
+            request
+        )
 
-        return github.get_pull_requests(repo_name)
+        return github.get_pull_requests(
+            repo_name
+        )
 
     except HTTPException:
         raise
@@ -92,14 +132,22 @@ async def get_pull_requests(
         )
 
 
-@router.get("/pull-files/{repo_name:path}/{pr_number}")
+# ============================================================
+# Pull request files
+# ============================================================
+
+@router.get(
+    "/pull-files/{repo_name:path}/{pr_number}"
+)
 async def get_pull_request_files(
     repo_name: str,
     pr_number: int,
     request: Request,
 ):
     try:
-        github = get_github_service(request)
+        github = get_github_service(
+            request
+        )
 
         return github.get_pull_request_files(
             repo_name,
@@ -116,18 +164,27 @@ async def get_pull_request_files(
         )
 
 
-@router.post("/predict/{repo_name:path}/{pr_number}")
+# ============================================================
+# Pull request prediction
+# ============================================================
+
+@router.post(
+    "/predict/{repo_name:path}/{pr_number}"
+)
 async def predict_pull_request(
     repo_name: str,
     pr_number: int,
     request: Request,
 ):
     try:
-        # Verify that the current user has a valid GitHub session.
-        # This prevents unauthenticated users from triggering
-        # repository/PR analysis.
-        github = get_github_service(request)
+        # Authenticate the current application session and
+        # obtain the user's GitHub service.
+        github = get_github_service(
+            request
+        )
 
+        # Pass the user's GitHub access token into the
+        # repository-aware prediction service.
         service = PRPredictionService(
             github.access_token
         )

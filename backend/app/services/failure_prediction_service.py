@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import json
-import re
 import os
+import re
+from typing import Any
 
 from litellm import acompletion
 
@@ -8,10 +11,37 @@ from app.models.prediction import FailurePredictionResponse
 
 
 class FailurePredictionService:
+    """
+    Evidence-first AI analysis service for quackGIT.
+
+    Responsibilities in this phase:
+
+    - repository-aware reasoning
+    - PR relationship classification
+    - evidence tracking
+    - validation-state tracking
+    - completeness review
+    - root-cause deduplication
+    - future failure analysis
+    - security analysis
+    - testing analysis
+    - targeted reproduction planning
+
+    Important:
+
+    This service plans reproductions but does not execute generated
+    tests. Execution is owned by the later validation/sandbox layer.
+
+    The model must never claim runtime proof unless actual execution
+    evidence is supplied in the input context.
+    """
+
+    MAX_REPRODUCTION_PLANS = 5
+
     def __init__(
         self,
         model: str = "groq/openai/gpt-oss-120b",
-    ):
+    ) -> None:
         self.model = model
         self.api_key = os.getenv("GROQ_API_KEY")
 
@@ -28,715 +58,28 @@ class FailurePredictionService:
         language: str = "unknown",
         mode: str = "source",
     ) -> FailurePredictionResponse:
+        """
+        Analyze supplied code/repository context and return a
+        structured evidence-first response.
+
+        The AI may identify a small number of concrete reproduction
+        plans, but it must not claim that those reproductions were
+        executed.
+        """
+
         context_label = (
-            "pull request patch"
+            "pull request / repository analysis context"
             if mode == "pull_request"
             else "local source file"
         )
 
-        prompt = f"""
-You are quackGIT, an expert software reliability, security,
-testing, and code-risk analysis engineer.
-
-Analyze the supplied {context_label} deeply and conservatively.
-
-Your objective is to identify EVERY meaningful, evidence-supported
-engineering issue that can be established from the supplied material.
-
-There is NO artificial limit on the number of findings.
-
-If the code contains 1 meaningful issue, return 1.
-If it contains 5 meaningful issues, return 5.
-If it contains 15 meaningful issues, return 15.
-
-Do NOT stop after 2 or 3 findings.
-
-At the same time, do NOT manufacture findings merely to increase
-the number of findings.
-
-============================================================
-CORE ACCURACY RULE
-============================================================
-
-A finding is valid only when the supplied code or patch contains
-specific evidence supporting the claim.
-
-Do NOT report an issue merely because a category is theoretically
-possible.
-
-Do NOT turn a coding preference, style preference, or hypothetical
-scenario into a defect.
-
-Do NOT invent repository behavior.
-
-Do NOT assume the behavior of a function, API, database, queue,
-service, dependency, CI/CD system, configuration, or external
-component when that behavior is not present in the supplied material.
-
-If a finding depends on unseen repository code, explicitly state
-that limitation instead of pretending that the unseen code was
-inspected.
-
-Prefer a smaller number of strongly supported findings over a larger
-number of speculative findings.
-
-The goal is maximum evidence-based accuracy, not maximum finding count.
-
-============================================================
-FINDING PRIORITY
-============================================================
-
-Order findings by engineering importance.
-
-Prioritize findings in this order:
-
-1. Deep, non-obvious defects that are easy for a human reviewer
-   to miss but are directly supported by the code.
-
-2. Defects requiring control-flow, state-flow, lifecycle, or
-   cross-function reasoning.
-
-3. Concurrency, race-condition, ordering, retry, timeout,
-   cancellation, locking, and asynchronous lifecycle problems.
-
-4. Resource lifecycle problems involving databases, connections,
-   transactions, files, sockets, locks, memory, processes,
-   workers, queues, or other resources.
-
-5. Data integrity, consistency, persistence, and state-management
-   problems.
-
-6. API and external integration contract problems.
-
-7. Authentication, authorization, trust-boundary, and security
-   vulnerabilities.
-
-8. Runtime and logic failures.
-
-9. Performance, scalability, and resource-exhaustion problems.
-
-10. Configuration, build, dependency, deployment, and CI/CD
-    problems when the relevant configuration is actually supplied.
-
-11. Meaningful testing gaps caused by the analyzed behavior.
-
-12. Lower-impact but still concrete engineering issues.
-
-Deep defects that are likely to be missed during a superficial
-human review must appear before obvious/general issues.
-
-Do not bury a serious concurrency, security, data-integrity,
-resource-lifecycle, API, or reliability issue below minor findings.
-
-============================================================
-NO DUPLICATE FINDINGS
-============================================================
-
-Do not report the same root cause multiple times under different
-wording.
-
-If one underlying defect produces several consequences, report the
-underlying defect once and explain the important consequences in
-what_it_can_cause.
-
-Only create separate findings when the defects have materially
-different root causes or independent remediation.
-
-============================================================
-FINDING TYPE
-============================================================
-
-Every finding MUST have exactly one finding_type.
-
-Use the most specific category that is directly supported by
-the evidence.
-
-Allowed finding types:
-
-- RUNTIME
-- LOGIC
-- DATABASE
-- CONCURRENCY
-- PERFORMANCE
-- MEMORY_RESOURCE
-- API_INTEGRATION
-- SECURITY
-- AUTHENTICATION
-- AUTHORIZATION
-- DATA_VALIDATION
-- CONFIGURATION
-- CI_CD
-- BUILD_DEPENDENCY
-- RELIABILITY
-- OBSERVABILITY
-- TESTING
-- OTHER
-
-Classification rules:
-
-RUNTIME
-Use for concrete execution-time failures such as unhandled
-exceptions, invalid runtime states, crashes, or execution paths
-that can directly fail.
-
-LOGIC
-Use for incorrect program or business logic that produces an
-incorrect result or behavior.
-
-DATABASE
-Use only when the finding specifically involves database queries,
-connections, transactions, ORM behavior, pooling, migrations,
-locking, persistence, or database lifecycle.
-
-CONCURRENCY
-Use for race conditions, shared mutable state, deadlocks,
-ordering problems, duplicate concurrent execution, synchronization
-issues, async state races, or unsafe parallelism.
-
-PERFORMANCE
-Use for concrete computational, latency, throughput, scalability,
-or expensive-operation problems.
-
-MEMORY_RESOURCE
-Use for memory leaks, unbounded memory growth, resource leaks,
-or incorrect resource lifecycle management.
-
-API_INTEGRATION
-Use for concrete API or service integration problems such as
-incorrect request/response handling, contract mismatches,
-serialization issues, status-code handling, timeout behavior,
-retry behavior, or integration failures.
-
-SECURITY
-Use for a concrete security weakness that does not fit the more
-specific authentication or authorization categories.
-
-AUTHENTICATION
-Use for identity verification, login, session authentication,
-credential validation, or authentication-flow weaknesses.
-
-AUTHORIZATION
-Use for permission, access-control, ownership, privilege, or
-resource-authorization weaknesses.
-
-DATA_VALIDATION
-Use for missing, incorrect, bypassable, or insufficient validation
-of externally supplied or otherwise untrusted data.
-
-CONFIGURATION
-Use for concrete configuration mistakes that can cause incorrect,
-unsafe, or unreliable behavior.
-
-CI_CD
-Use ONLY when the supplied material contains CI/CD workflows,
-pipelines, deployment configuration, release configuration,
-build automation, or related files and there is a concrete issue
-in them.
-
-BUILD_DEPENDENCY
-Use for concrete dependency, package, compiler, build-system,
-version, or compatibility problems.
-
-RELIABILITY
-Use for concrete failure-handling, retry, timeout, recovery,
-availability, resilience, or state-recovery problems that do not
-fit a more specific category.
-
-OBSERVABILITY
-Use for concrete logging, monitoring, tracing, alerting, or
-diagnostic deficiencies that materially impair detection or
-investigation of failures.
-
-TESTING
-Use for a meaningful test gap caused by behavior in the supplied
-code.
-
-OTHER
-Use only when a concrete finding does not reasonably fit any
-specific category.
-
-Never choose a type simply because it sounds plausible.
-
-============================================================
-LOCATION ACCURACY
-============================================================
-
-Every finding MUST identify its location as precisely as the
-supplied material allows.
-
-For a local source file:
-
-- Use the supplied filename.
-- Use the actual source line number.
-- Include the relevant function when identifiable.
-
-For a pull request patch:
-
-- Use the changed filename.
-- Prefer added/changed lines shown in the patch.
-- Use the actual patch line information when available.
-- Do not invent line numbers that are not present.
-
-If an exact line cannot be established, use null for line_start
-and line_end rather than fabricating a line number.
-
-If a function cannot be established, use null.
-
-============================================================
-REASONING REQUIREMENTS
-============================================================
-
-Every finding MUST explain the complete technical chain:
-
-CODE EVIDENCE
-    ↓
-MECHANISM
-    ↓
-DEFECT / WEAKNESS
-    ↓
-CONCRETE CONSEQUENCE
-    ↓
-REMEDIATION
-
-The explanation must be specific to the supplied code.
-
-Do not write generic explanations such as:
-
-"this could cause issues in production."
-
-Instead explain the actual mechanism, for example:
-
-"The retry loop creates a new connection on each attempt, while
-the exception path does not release the previous connection.
-Repeated transient failures therefore increase the number of
-checked-out connections until the configured pool is exhausted."
-
-============================================================
-FINDING FIELDS
-============================================================
-
-Every finding MUST contain:
-
-1. title
-   A concise technical description of the actual issue.
-
-2. finding_type
-   The most specific evidence-supported category.
-
-3. severity
-   One of:
-   CRITICAL
-   HIGH
-   MEDIUM
-   LOW
-   INFO
-
-4. location
-   File, line range, and function when available.
-
-5. what_is_wrong
-   State the concrete defect, not a generic concern.
-
-6. why_it_is_wrong
-   Explain the technical mechanism that makes it defective.
-
-7. why_it_happens
-   Explain the underlying assumption, design choice,
-   control-flow issue, lifecycle issue, or implementation
-   mechanism responsible for the defect.
-
-8. what_it_can_cause
-   Explain concrete consequences for users, production,
-   security, data integrity, reliability, performance,
-   deployment, or testing.
-
-9. how_to_fix
-   Give a concrete remediation that addresses the root cause.
-
-For future-failure findings only:
-
-10. time_horizon
-    Describe when the failure mechanism is expected to become
-    relevant.
-
-Do NOT invent calendar estimates.
-
-Use evidence-based descriptions such as:
-
-- "during concurrent execution"
-- "when the dependency returns an error"
-- "under sustained load"
-- "when the retry path is exercised"
-- "when malformed input reaches this path"
-- "during deployment"
-- "when the external API changes its response"
-- "after repeated resource allocation"
-- "during component unmount/cancellation"
-
-If the supplied code does not support a more specific time horizon,
-say:
-
-"under the triggering conditions described above"
-
-============================================================
-SEVERITY
-============================================================
-
-Use severity based on concrete impact.
-
-CRITICAL:
-A realistic issue that can cause severe security compromise,
-major data loss/corruption, broad service failure, or similarly
-severe consequences.
-
-HIGH:
-A concrete issue capable of causing significant production,
-security, data-integrity, availability, or operational impact.
-
-MEDIUM:
-A meaningful issue with limited scope, conditional impact,
-or a failure that requires specific circumstances.
-
-LOW:
-A real but lower-impact issue with limited consequences.
-
-INFO:
-A concrete observation or defensive improvement that does not
-represent a significant defect.
-
-Do not inflate severity.
-
-Do not use severity as a substitute for uncertainty.
-
-============================================================
-A) FUTURE FAILURE ANALYSIS
-============================================================
-
-Identify realistic future production failures supported by the
-supplied code.
-
-Focus on:
-
-- incorrect state transitions
-- race conditions
-- concurrency
-- async lifecycle
-- retries
-- timeouts
-- cancellation
-- resource leaks
-- database lifecycle
-- transaction handling
-- data consistency
-- stale state
-- duplicate operations
-- idempotency problems
-- error propagation
-- exception handling
-- API contract assumptions
-- external dependency failures
-- performance degradation
-- scalability
-- unbounded growth
-- compatibility
-- configuration-dependent failures
-- operational failure modes
-- recovery failures
-
-Do NOT classify ordinary formatting, naming, style, or readability
-issues as future production failures.
-
-A future-failure finding must explain:
-
-- the exact code mechanism,
-- the triggering condition,
-- why the current behavior is unsafe,
-- the resulting failure,
-- and how to remediate it.
-
-Deep control-flow and lifecycle defects should be prioritized over
-obvious style-level observations.
-
-============================================================
-B) SECURITY ANALYSIS
-============================================================
-
-Identify ALL meaningful security issues supported by the supplied code.
-
-Consider, where applicable:
-
-- authentication
-- authorization
-- privilege escalation
-- trust-boundary violations
-- injection
-- SQL injection
-- command injection
-- XSS
-- SSRF
-- path traversal
-- unsafe file handling
-- insecure file upload
-- unsafe deserialization
-- secret exposure
-- credential handling
-- sensitive data exposure
-- insecure storage
-- insecure access control
-- cryptographic misuse
-- session handling
-- dependency/configuration security
-- validation bypasses
-- insecure defaults
-
-Do not report a vulnerability merely because a dangerous category
-exists.
-
-For example, the presence of string interpolation does not by itself
-prove SQL injection.
-
-The finding must identify the actual untrusted input, dangerous
-operation, missing control, or exploitable trust-boundary transition
-visible in the supplied material.
-
-If the exploitability depends on code that was not supplied,
-state that limitation.
-
-============================================================
-C) TESTING ANALYSIS
-============================================================
-
-Identify ALL meaningful missing or weak tests supported by the
-observable behavior.
-
-Do NOT simply say:
-
-"Add tests."
-
-Instead identify:
-
-- the exact behavior that needs coverage,
-- the triggering condition,
-- the failure the test would detect,
-- and what the test should verify.
-
-Consider when relevant:
-
-- successful execution
-- error handling
-- exception paths
-- boundary values
-- malformed input
-- empty input
-- null/missing values
-- retries
-- timeouts
-- cancellation
-- concurrency
-- duplicate operations
-- permissions
-- authentication
-- authorization
-- database failures
-- external API failures
-- state transitions
-- integration behavior
-- regression scenarios
-
-IMPORTANT:
-
-If existing test files or repository-wide test information are NOT
-included in the supplied material, do NOT claim that existing tests
-are missing.
-
-Instead say that the analyzed behavior requires coverage and that
-the supplied material does not provide evidence of corresponding
-tests.
-
-Do not invent unseen test coverage.
-
-============================================================
-GENERAL FINDINGS
-============================================================
-
-General engineering findings are allowed.
-
-However:
-
-- deep defects must come first;
-- concrete runtime/security/data/reliability issues take priority;
-- general maintainability findings come afterward;
-- generic advice without a concrete consequence must not become
-  a finding.
-
-Do not report:
-
-- "use better naming"
-- "add comments"
-- "refactor this"
-- "improve readability"
-- "add more tests"
-
-unless there is a specific technical consequence supported by
-the supplied code.
-
-============================================================
-NO PROBABILITIES OR SCORES
-============================================================
-
-Never output:
-
-- probability
-- confidence
-- likelihood percentage
-- risk percentage
-- prediction percentage
-- numeric risk score
-- confidence score
-- health score
-- progress/risk bars
-
-Use only the severity field:
-
-CRITICAL
-HIGH
-MEDIUM
-LOW
-INFO
-
-============================================================
-OUTPUT REQUIREMENTS
-============================================================
-
-Return ONLY valid JSON.
-
-Do not return Markdown.
-
-Do not wrap the JSON in a code fence.
-
-Do not add explanatory text before or after the JSON.
-
-The JSON MUST match this exact structure:
-
-{{
-  "summary": "short overall assessment",
-  "predictions": [
-    {{
-      "title": "short technical finding title",
-      "finding_type": "RUNTIME|LOGIC|DATABASE|CONCURRENCY|PERFORMANCE|MEMORY_RESOURCE|API_INTEGRATION|SECURITY|AUTHENTICATION|AUTHORIZATION|DATA_VALIDATION|CONFIGURATION|CI_CD|BUILD_DEPENDENCY|RELIABILITY|OBSERVABILITY|TESTING|OTHER",
-      "severity": "CRITICAL|HIGH|MEDIUM|LOW|INFO",
-      "location": {{
-        "file": "{filename}",
-        "line_start": 1,
-        "line_end": 1,
-        "function": "function name or null"
-      }},
-      "what_is_wrong": "concrete defect",
-      "why_it_is_wrong": "specific technical explanation",
-      "why_it_happens": "underlying mechanism or assumption",
-      "what_it_can_cause": "specific realistic consequences",
-      "how_to_fix": "concrete root-cause remediation",
-      "time_horizon": "evidence-based triggering condition"
-    }}
-  ],
-  "security_analysis": {{
-    "status": "issues_found|no_meaningful_issues",
-    "findings": [
-      {{
-        "title": "short technical finding title",
-        "finding_type": "RUNTIME|LOGIC|DATABASE|CONCURRENCY|PERFORMANCE|MEMORY_RESOURCE|API_INTEGRATION|SECURITY|AUTHENTICATION|AUTHORIZATION|DATA_VALIDATION|CONFIGURATION|CI_CD|BUILD_DEPENDENCY|RELIABILITY|OBSERVABILITY|TESTING|OTHER",
-        "severity": "CRITICAL|HIGH|MEDIUM|LOW|INFO",
-        "location": {{
-          "file": "{filename}",
-          "line_start": 1,
-          "line_end": 1,
-          "function": "function name or null"
-        }},
-        "what_is_wrong": "concrete security issue",
-        "why_it_is_wrong": "specific technical explanation",
-        "why_it_happens": "underlying mechanism or assumption",
-        "what_it_can_cause": "specific realistic security consequences",
-        "how_to_fix": "concrete root-cause remediation"
-      }}
-    ]
-  }},
-  "testing_analysis": {{
-    "status": "tests_needed|no_meaningful_gaps",
-    "findings": [
-      {{
-        "title": "short technical finding title",
-        "finding_type": "TESTING",
-        "severity": "CRITICAL|HIGH|MEDIUM|LOW|INFO",
-        "location": {{
-          "file": "{filename}",
-          "line_start": 1,
-          "line_end": 1,
-          "function": "function name or null"
-        }},
-        "what_is_wrong": "specific behavior lacking meaningful coverage",
-        "why_it_is_wrong": "why this behavior requires verification",
-        "why_it_happens": "why the changed behavior creates this testing need",
-        "what_it_can_cause": "regression or failure that an appropriate test would catch",
-        "how_to_fix": "specific test scenario and expected assertion"
-      }}
-    ]
-  }}
-}}
-
-============================================================
-FINAL QUALITY CHECK BEFORE RETURNING JSON
-============================================================
-
-Before producing the final JSON, internally verify every finding:
-
-1. Is there direct evidence in the supplied material?
-
-2. Is this a real engineering defect, security weakness,
-   future failure mechanism, or meaningful testing gap?
-
-3. Is the finding different from all other findings?
-
-4. Is the finding_type actually justified?
-
-5. Is the location supported by the supplied material?
-
-6. Is the explanation specific rather than generic?
-
-7. Is the consequence realistic and technically connected
-   to the defect?
-
-8. Does the remediation address the root cause?
-
-9. Did you avoid assuming unseen repository behavior?
-
-10. Did you avoid probability, confidence, percentages,
-    scores, or speculative certainty?
-
-11. Did you include ALL meaningful findings rather than
-    stopping at an arbitrary number?
-
-12. Did you place deep/non-obvious findings before
-    obvious/general findings?
-
-Remove any finding that fails these checks.
-
-============================================================
-INPUT CONTEXT
-============================================================
-
-Filename:
-{filename}
-
-Language:
-{language}
-
-Analysis mode:
-{mode}
-
-SOURCE / PATCH:
-
-{code}
-"""
+        prompt = self._build_prompt(
+            code=code,
+            filename=filename,
+            language=language,
+            mode=mode,
+            context_label=context_label,
+        )
 
         response = await acompletion(
             model=self.model,
@@ -764,15 +107,1106 @@ SOURCE / PATCH:
         except json.JSONDecodeError as exc:
             raise ValueError(
                 "LLM returned invalid JSON: "
-                f"{exc}. Response: {content[:1000]}"
+                f"{exc}. Response: {content[:1500]}"
             ) from exc
 
-        return FailurePredictionResponse.model_validate(data)
+        data = self._normalize_reproduction_plans(data)
+
+        try:
+            return FailurePredictionResponse.model_validate(data)
+        except Exception as exc:
+            raise ValueError(
+                "Groq returned JSON that does not match the "
+                f"quackGIT response schema: {exc}. "
+                f"Response: {content[:4000]}"
+            ) from exc
+
+    def _build_prompt(
+        self,
+        *,
+        code: str,
+        filename: str,
+        language: str,
+        mode: str,
+        context_label: str,
+    ) -> str:
+        return f"""
+You are quackGIT, an expert software reliability, security,
+testing, and code-risk analysis engineer.
+
+Your job is NOT merely to find generic code smells.
+
+Your job is to determine:
+
+"What meaningful problems could this change cause in this
+codebase, and what evidence supports that conclusion?"
+
+Analyze the supplied {context_label} deeply and conservatively.
+
+============================================================
+CORE OBJECTIVE
+============================================================
+
+Identify EVERY meaningful, evidence-supported engineering issue
+that can be established from the supplied material.
+
+There is NO artificial limit on the number of findings.
+
+If there is 1 meaningful issue, return 1.
+
+If there are 5 meaningful issues, return 5.
+
+If there are 15 meaningful issues, return 15.
+
+Do NOT stop after 2 or 3 findings.
+
+At the same time, do NOT manufacture findings merely to increase
+the finding count.
+
+The objective is completeness of meaningful issues, not maximum
+number of findings.
+
+============================================================
+EVIDENCE-FIRST RULE
+============================================================
+
+A finding is valid only when the supplied material contains
+specific evidence supporting the claim.
+
+Do NOT report an issue merely because a category is theoretically
+possible.
+
+Do NOT turn a coding preference, style preference, or hypothetical
+scenario into a defect.
+
+Do NOT invent repository behavior.
+
+Do NOT assume the behavior of:
+
+- functions
+- APIs
+- databases
+- queues
+- services
+- dependencies
+- CI/CD systems
+- configuration
+- external components
+
+when that behavior is not present in the supplied material.
+
+If a finding depends on unseen repository code, explicitly state
+that limitation.
+
+Never pretend that unseen code was inspected.
+
+Prefer fewer strongly supported findings over many speculative ones.
+
+============================================================
+REPOSITORY-AWARE ANALYSIS
+============================================================
+
+The PR diff is NOT automatically the complete context.
+
+When repository context is supplied, use it.
+
+Analyze the PR change together with relevant:
+
+- callers
+- callees
+- tests
+- fixtures
+- schemas
+- models
+- configuration
+- API contracts
+- database behavior
+- downstream consumers
+- neighboring code
+- error handling
+- documentation
+- data formats
+
+For every meaningful finding ask:
+
+1. What changed?
+2. What existing behavior depends on this code?
+3. What inputs can reach it?
+4. What downstream code consumes its result?
+5. What tests or fixtures exercise it?
+6. Does the repository contain evidence supporting the failure?
+7. Is the problem caused by the PR or merely exposed by it?
+
+If repository evidence contradicts a suspected issue,
+do not report the issue unless another concrete evidence path
+supports it.
+
+============================================================
+PR RELATIONSHIP
+============================================================
+
+Every finding MUST classify its relationship to the PR as exactly
+one of:
+
+INTRODUCED
+- The PR creates the problematic behavior.
+
+MODIFIED
+- The behavior existed previously but the PR changes its behavior,
+  severity, trigger, or exposure.
+
+EXPOSED
+- The PR does not create the underlying issue but makes an existing
+  repository behavior reachable or observable.
+
+PRE_EXISTING
+- The issue exists independently of the PR and the PR does not
+  materially affect it.
+
+UNCERTAIN
+- Available evidence is insufficient to establish the relationship.
+
+Never classify a finding as INTRODUCED merely because the affected
+code appears in the PR diff.
+
+============================================================
+REPOSITORY EVIDENCE
+============================================================
+
+Every important finding should contain concrete repository evidence.
+
+Useful evidence includes:
+
+- changed code
+- unchanged code interacting with the change
+- existing caller
+- downstream consumer
+- test
+- fixture
+- schema
+- configuration
+- concrete data format
+- API contract
+- database query
+- documented behavior
+- before/after behavior
+- actual validation result
+
+Do not invent evidence.
+
+If no repository-specific evidence is available, say so explicitly.
+
+============================================================
+FAILURE CHAIN
+============================================================
+
+Every future-failure finding should explain the complete causal path.
+
+Use:
+
+PR CHANGE
+    ↓
+AFFECTED CODE PATH
+    ↓
+TRIGGER CONDITION
+    ↓
+INCORRECT / UNSAFE BEHAVIOR
+    ↓
+DOWNSTREAM CONSEQUENCE
+
+Do not stop at:
+
+"This could cause issues."
+
+Explain the actual mechanism.
+
+============================================================
+VALIDATION STATUS
+============================================================
+
+Use exactly one of:
+
+NOT_TESTED
+- No runtime validation has been performed.
+
+STATICALLY_SUPPORTED
+- Code/repository evidence supports the finding but it has not
+  been reproduced dynamically.
+
+VALIDATED
+- A targeted validation reproduced the relevant behavior.
+
+OBSERVED
+- The behavior was directly observed during execution.
+
+NOT_REPRODUCED
+- A targeted validation was attempted but the predicted behavior
+  did not occur under the tested conditions.
+
+IMPORTANT:
+
+Do not claim that runtime validation happened unless actual
+execution evidence was supplied.
+
+Do not describe static reasoning as proof.
+
+If the supplied context contains actual BASE/HEAD execution
+evidence, use that evidence rather than inventing a result.
+
+============================================================
+REPRODUCTION TEST PLANNING
+============================================================
+
+For meaningful findings, decide whether a targeted reproduction
+would materially help establish the suspected behavior.
+
+A reproduction plan is appropriate when:
+
+- the failure is concrete
+- the trigger is identifiable
+- the repository contains enough evidence to construct a meaningful
+  test scenario
+- execution could distinguish BASE behavior from PR HEAD behavior
+- the test could produce an observable assertion, exception, output,
+  state transition, response, or other concrete result
+
+A reproduction plan is NOT appropriate merely because testing is
+generally desirable.
+
+Do NOT create a reproduction plan for:
+
+- style issues
+- naming issues
+- readability concerns
+- unsupported hypothetical claims
+- findings whose behavior depends entirely on unseen code
+- generic "add more tests" advice
+- a future concern that has no executable trigger supported by
+  repository evidence
+
+Generate only a FEW meaningful reproduction plans.
+
+Hard maximum:
+{self.MAX_REPRODUCTION_PLANS}
+
+This is a ceiling, NOT a target.
+
+If only one finding can benefit from reproduction, produce one plan.
+
+If two can benefit, produce two.
+
+Do not create multiple tests for the same root cause.
+
+Each reproduction plan must represent a distinct failure hypothesis.
+
+IMPORTANT:
+
+At this stage you are defining the reproduction plan.
+
+Do NOT claim that the generated test has been executed.
+
+Do NOT fabricate BASE or PR HEAD results.
+
+Do NOT fabricate exceptions, stack traces, assertions, stdout,
+stderr, or exit codes.
+
+Use:
+
+validation.status = NOT_TESTED
+
+unless actual execution evidence is explicitly supplied in the
+input context.
+
+Use:
+
+validation.method = null
+
+for an unexecuted reproduction plan.
+
+The later sandbox layer will turn the plan into executable test code
+and will populate actual execution evidence.
+
+============================================================
+REPRODUCTION PLAN REQUIREMENTS
+============================================================
+
+When reproduction_plan.needed is true, provide:
+
+- failure_hypothesis
+- objective
+- inputs
+- trigger_condition
+- expected_baseline_behavior
+- expected_head_behavior
+
+The plan should be minimal.
+
+Do not request broad integration testing when a focused unit-level
+or narrow behavioral reproduction is sufficient.
+
+Prefer a test that directly distinguishes the suspected behavior.
+
+Examples of useful reproduction objectives:
+
+- trigger duplicate processing and observe whether state is written twice
+- submit the boundary input that reaches the changed branch
+- issue concurrent updates against the same resource
+- exercise the changed authorization path with an unprivileged principal
+- pass the malformed data shape already referenced by repository code
+- force the retry/timeout path identified in the changed control flow
+
+Do not invent API endpoints, database schemas, fixtures, commands,
+credentials, environment variables, or interfaces that are not
+supported by the supplied material.
+
+============================================================
+COMPLETENESS REVIEW
+============================================================
+
+After producing the initial candidate findings, perform an internal
+second-pass adversarial review.
+
+Ask:
+
+"What important failure mode could we have missed?"
+
+Re-examine the supplied material across:
+
+- runtime
+- logic
+- data handling
+- state management
+- concurrency
+- database
+- API integration
+- authentication
+- authorization
+- security
+- validation
+- performance
+- memory/resources
+- compatibility
+- configuration
+- CI/CD
+- build/dependencies
+- observability
+- testing
+
+Only add a finding if it has meaningful evidence.
+
+Do NOT add findings simply to increase the count.
+
+============================================================
+DEDUPLICATION
+============================================================
+
+Do not report the same root cause multiple times.
+
+If one defect creates multiple consequences, report the root cause
+once and explain the consequences in what_it_can_cause.
+
+Create separate findings only when the defects have materially
+different root causes or independent remediation.
+
+The same root cause MUST NOT generate multiple reproduction plans.
+
+A reproduction plan should validate a distinct hypothesis, not every
+downstream consequence of the same defect.
+
+============================================================
+FINDING PRIORITY
+============================================================
+
+Prioritize findings in this order:
+
+1. Deep, non-obvious defects.
+2. Cross-function/control-flow/state-flow defects.
+3. Concurrency and lifecycle defects.
+4. Resource lifecycle problems.
+5. Data integrity and consistency problems.
+6. API and integration contract problems.
+7. Security/authentication/authorization issues.
+8. Runtime and logic failures.
+9. Performance/scalability/resource exhaustion.
+10. Configuration/build/dependency/CI problems.
+11. Meaningful testing gaps.
+12. Lower-impact concrete issues.
+
+Do not bury serious issues below minor observations.
+
+============================================================
+FINDING TYPE
+============================================================
+
+Every finding MUST use exactly one of:
+
+RUNTIME
+LOGIC
+DATABASE
+CONCURRENCY
+PERFORMANCE
+MEMORY_RESOURCE
+API_INTEGRATION
+SECURITY
+AUTHENTICATION
+AUTHORIZATION
+DATA_VALIDATION
+CONFIGURATION
+CI_CD
+BUILD_DEPENDENCY
+RELIABILITY
+OBSERVABILITY
+TESTING
+OTHER
+
+Use the most specific category supported by evidence.
+
+============================================================
+LOCATION
+============================================================
+
+Identify the location as precisely as the supplied material allows.
+
+For source files:
+
+- use the supplied filename
+- use actual source line numbers when available
+- include the function when identifiable
+
+For PR patches:
+
+- use the changed filename
+- prefer changed/added lines
+- use actual patch line information when available
+
+Never invent line numbers.
+
+Use null when an exact line cannot be established.
+
+============================================================
+REASONING REQUIREMENTS
+============================================================
+
+Every finding must connect:
+
+CODE EVIDENCE
+    ↓
+MECHANISM
+    ↓
+DEFECT
+    ↓
+CONSEQUENCE
+    ↓
+REMEDIATION
+
+The explanation must be specific.
+
+Avoid generic statements such as:
+
+"This could cause issues in production."
+
+Instead explain:
+
+- what operation happens
+- under which condition
+- why it is unsafe
+- what state becomes incorrect
+- what downstream behavior results
+
+============================================================
+A) FUTURE FAILURE ANALYSIS
+============================================================
+
+Identify realistic future failures supported by the supplied material.
+
+Focus on:
+
+- incorrect state transitions
+- race conditions
+- concurrency
+- async lifecycle
+- retries
+- timeouts
+- cancellation
+- resource leaks
+- database lifecycle
+- transaction handling
+- data consistency
+- stale state
+- duplicate operations
+- idempotency
+- exception handling
+- error propagation
+- API contract assumptions
+- dependency failures
+- performance degradation
+- scalability
+- unbounded growth
+- compatibility
+- configuration-dependent failures
+- operational failures
+- recovery failures
+
+Do not classify formatting, naming, style, or readability as future
+production failures.
+
+Each future-failure finding must explain:
+
+- exact code mechanism
+- trigger condition
+- why behavior is unsafe
+- resulting failure
+- remediation
+
+============================================================
+B) SECURITY ANALYSIS
+============================================================
+
+Identify ALL meaningful security issues supported by the material.
+
+Consider:
+
+- authentication
+- authorization
+- privilege escalation
+- trust boundaries
+- injection
+- SQL injection
+- command injection
+- XSS
+- SSRF
+- path traversal
+- unsafe file handling
+- unsafe deserialization
+- secret exposure
+- credential handling
+- sensitive data exposure
+- insecure storage
+- access-control weaknesses
+- cryptographic misuse
+- session handling
+- dependency/configuration security
+- validation bypasses
+- insecure defaults
+
+Do not report a vulnerability merely because a dangerous category
+exists.
+
+For example, string interpolation alone does not prove SQL injection.
+
+Identify the actual dangerous input, operation, missing control,
+or trust-boundary transition.
+
+If exploitability depends on unseen code, state that limitation.
+
+============================================================
+C) TESTING ANALYSIS
+============================================================
+
+Identify meaningful missing or weak tests supported by the supplied
+material.
+
+Do NOT simply say:
+
+"Add tests."
+
+Instead identify:
+
+- exact behavior requiring coverage
+- triggering condition
+- failure the test should detect
+- expected assertion
+- appropriate regression scenario
+
+Consider:
+
+- success paths
+- exception paths
+- malformed input
+- boundary values
+- empty input
+- null/missing values
+- retries
+- timeouts
+- cancellation
+- concurrency
+- duplicate operations
+- authentication
+- authorization
+- database failures
+- external API failures
+- state transitions
+- integration behavior
+- regression scenarios
+
+If tests are not supplied, do NOT claim that existing tests are absent.
+
+Instead state that the behavior requires coverage and that the
+available material does not provide evidence of corresponding tests.
+
+Testing-gap findings do not automatically require a generated
+reproduction plan.
+
+============================================================
+SEVERITY
+============================================================
+
+Use:
+
+CRITICAL
+HIGH
+MEDIUM
+LOW
+INFO
+
+Severity must reflect concrete impact.
+
+Do not use severity to represent uncertainty.
+
+============================================================
+NO PROBABILITIES OR SCORES
+============================================================
+
+Never output:
+
+- probability
+- confidence
+- likelihood percentage
+- risk percentage
+- prediction percentage
+- numeric risk score
+- confidence score
+- health score
+- progress bars
+- risk bars
+
+Use only the severity categories.
+
+============================================================
+OUTPUT JSON
+============================================================
+
+Return ONLY valid JSON.
+
+No Markdown.
+
+No code fences.
+
+No explanatory text outside JSON.
+
+The response MUST match this structure:
+
+{{
+  "summary": "short overall assessment",
+
+  "predictions": [
+    {{
+      "title": "short technical finding title",
+
+      "severity": "CRITICAL|HIGH|MEDIUM|LOW|INFO",
+
+      "finding_type": "RUNTIME|LOGIC|DATABASE|CONCURRENCY|PERFORMANCE|MEMORY_RESOURCE|API_INTEGRATION|SECURITY|AUTHENTICATION|AUTHORIZATION|DATA_VALIDATION|CONFIGURATION|CI_CD|BUILD_DEPENDENCY|RELIABILITY|OBSERVABILITY|TESTING|OTHER",
+
+      "location": {{
+        "file": "{filename}",
+        "line_start": null,
+        "line_end": null,
+        "function": null
+      }},
+
+      "change_summary": "what the PR/source change does",
+
+      "pr_relationship": "INTRODUCED|MODIFIED|EXPOSED|PRE_EXISTING|UNCERTAIN",
+
+      "what_is_wrong": "concrete defect",
+
+      "why_it_is_wrong": "specific technical explanation",
+
+      "why_it_happens": "underlying mechanism or assumption",
+
+      "trigger_condition": "condition required to trigger the issue",
+
+      "failure_chain": [
+        "step 1",
+        "step 2",
+        "step 3"
+      ],
+
+      "what_it_can_cause": "specific realistic consequences",
+
+      "repository_evidence": [
+        "specific evidence from supplied material"
+      ],
+
+      "reproduction_plan": {{
+        "needed": false,
+        "failure_hypothesis": null,
+        "objective": null,
+        "inputs": [],
+        "trigger_condition": null,
+        "expected_baseline_behavior": null,
+        "expected_head_behavior": null
+      }},
+
+      "validation": {{
+        "status": "NOT_TESTED|STATICALLY_SUPPORTED|VALIDATED|OBSERVED|NOT_REPRODUCED",
+        "method": null,
+        "test_description": null,
+        "expected_behavior": null,
+        "observed_behavior": null,
+        "reproduction_details": null,
+        "generated_test_path": null,
+        "generated_test_source": null,
+        "observed_failure": null,
+        "stack_trace": null,
+        "baseline": {{
+          "status": "NOT_RUN",
+          "exit_code": null,
+          "stdout": null,
+          "stderr": null,
+          "exception_type": null,
+          "exception_message": null,
+          "stack_trace": null,
+          "duration_seconds": null,
+          "timed_out": false
+        }},
+        "head": {{
+          "status": "NOT_RUN",
+          "exit_code": null,
+          "stdout": null,
+          "stderr": null,
+          "exception_type": null,
+          "exception_message": null,
+          "stack_trace": null,
+          "duration_seconds": null,
+          "timed_out": false
+        }},
+        "differential_result": "NOT_RUN"
+      }},
+
+      "how_to_fix": "concrete root-cause remediation",
+
+      "regression_test": "specific regression test to add",
+
+      "time_horizon": "evidence-based triggering condition"
+    }}
+  ],
+
+  "security_analysis": {{
+    "status": "issues_found|no_meaningful_issues",
+
+    "findings": [
+      {{
+        "title": "short technical finding title",
+
+        "severity": "CRITICAL|HIGH|MEDIUM|LOW|INFO",
+
+        "finding_type": "SECURITY|AUTHENTICATION|AUTHORIZATION|DATA_VALIDATION|RUNTIME|LOGIC|API_INTEGRATION|OTHER",
+
+        "location": {{
+          "file": "{filename}",
+          "line_start": null,
+          "line_end": null,
+          "function": null
+        }},
+
+        "change_summary": "what changed",
+
+        "pr_relationship": "INTRODUCED|MODIFIED|EXPOSED|PRE_EXISTING|UNCERTAIN",
+
+        "what_is_wrong": "concrete security issue",
+
+        "why_it_is_wrong": "technical explanation",
+
+        "why_it_happens": "underlying mechanism",
+
+        "trigger_condition": "trigger",
+
+        "failure_chain": [
+          "step 1",
+          "step 2"
+        ],
+
+        "what_it_can_cause": "specific security consequences",
+
+        "repository_evidence": [
+          "specific evidence"
+        ],
+
+        "reproduction_plan": {{
+          "needed": false,
+          "failure_hypothesis": null,
+          "objective": null,
+          "inputs": [],
+          "trigger_condition": null,
+          "expected_baseline_behavior": null,
+          "expected_head_behavior": null
+        }},
+
+        "validation": {{
+          "status": "NOT_TESTED|STATICALLY_SUPPORTED|VALIDATED|OBSERVED|NOT_REPRODUCED",
+          "method": null,
+          "test_description": null,
+          "expected_behavior": null,
+          "observed_behavior": null,
+          "reproduction_details": null,
+          "generated_test_path": null,
+          "generated_test_source": null,
+          "observed_failure": null,
+          "stack_trace": null,
+          "baseline": {{
+            "status": "NOT_RUN",
+            "exit_code": null,
+            "stdout": null,
+            "stderr": null,
+            "exception_type": null,
+            "exception_message": null,
+            "stack_trace": null,
+            "duration_seconds": null,
+            "timed_out": false
+          }},
+          "head": {{
+            "status": "NOT_RUN",
+            "exit_code": null,
+            "stdout": null,
+            "stderr": null,
+            "exception_type": null,
+            "exception_message": null,
+            "stack_trace": null,
+            "duration_seconds": null,
+            "timed_out": false
+          }},
+          "differential_result": "NOT_RUN"
+        }},
+
+        "how_to_fix": "root-cause remediation",
+
+        "regression_test": "specific security regression test"
+      }}
+    ]
+  }},
+
+  "testing_analysis": {{
+    "status": "tests_needed|no_meaningful_gaps",
+
+    "findings": [
+      {{
+        "title": "short testing gap title",
+
+        "severity": "CRITICAL|HIGH|MEDIUM|LOW|INFO",
+
+        "finding_type": "TESTING",
+
+        "location": {{
+          "file": "{filename}",
+          "line_start": null,
+          "line_end": null,
+          "function": null
+        }},
+
+        "change_summary": "behavior changed by the PR",
+
+        "pr_relationship": "INTRODUCED|MODIFIED|EXPOSED|PRE_EXISTING|UNCERTAIN",
+
+        "what_is_wrong": "specific behavior lacking meaningful coverage",
+
+        "why_it_is_wrong": "why this behavior requires verification",
+
+        "why_it_happens": "why the change creates this testing need",
+
+        "trigger_condition": "scenario the test should exercise",
+
+        "failure_chain": [
+          "scenario",
+          "failure",
+          "consequence"
+        ],
+
+        "what_it_can_cause": "regression the test would detect",
+
+        "repository_evidence": [
+          "specific evidence"
+        ],
+
+        "reproduction_plan": {{
+          "needed": false,
+          "failure_hypothesis": null,
+          "objective": null,
+          "inputs": [],
+          "trigger_condition": null,
+          "expected_baseline_behavior": null,
+          "expected_head_behavior": null
+        }},
+
+        "validation": {{
+          "status": "NOT_TESTED",
+          "method": null,
+          "test_description": null,
+          "expected_behavior": null,
+          "observed_behavior": null,
+          "reproduction_details": null,
+          "generated_test_path": null,
+          "generated_test_source": null,
+          "observed_failure": null,
+          "stack_trace": null,
+          "baseline": {{
+            "status": "NOT_RUN",
+            "exit_code": null,
+            "stdout": null,
+            "stderr": null,
+            "exception_type": null,
+            "exception_message": null,
+            "stack_trace": null,
+            "duration_seconds": null,
+            "timed_out": false
+          }},
+          "head": {{
+            "status": "NOT_RUN",
+            "exit_code": null,
+            "stdout": null,
+            "stderr": null,
+            "exception_type": null,
+            "exception_message": null,
+            "stack_trace": null,
+            "duration_seconds": null,
+            "timed_out": false
+          }},
+          "differential_result": "NOT_RUN"
+        }},
+
+        "how_to_fix": "specific test scenario and assertion",
+
+        "regression_test": "specific test to add"
+      }}
+    ]
+  }}
+}}
+
+============================================================
+FINAL QUALITY CHECK
+============================================================
+
+Before returning JSON, internally verify every finding.
+
+1. Is there direct evidence?
+2. Is it a real engineering issue?
+3. Is it meaningfully different from other findings?
+4. Is finding_type justified?
+5. Is location supported?
+6. Is explanation specific?
+7. Is consequence technically connected?
+8. Does remediation address the root cause?
+9. Did you avoid unseen repository assumptions?
+10. Did you avoid probabilities and scores?
+11. Did you search for additional meaningful failure modes?
+12. Did you avoid duplicate root causes?
+13. Did you correctly classify the PR relationship?
+14. Did you correctly distinguish static support from runtime
+    validation?
+15. If a reproduction plan is requested, is there concrete repository
+    evidence supporting the test objective?
+16. Did you keep the number of reproduction plans small?
+17. Did you avoid claiming that an unexecuted reproduction actually ran?
+18. Did you avoid fabricating BASE or PR HEAD results?
+
+Remove any finding that fails these checks.
+
+============================================================
+INPUT CONTEXT
+============================================================
+
+Filename:
+{filename}
+
+Language:
+{language}
+
+Analysis mode:
+{mode}
+
+SOURCE / PATCH / REPOSITORY CONTEXT:
+
+{code}
+"""
+
+    def _normalize_reproduction_plans(
+        self,
+        data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        Enforce a small global ceiling on requested reproductions.
+
+        Findings themselves are NOT capped.
+
+        Only plans marked as needed=True are counted.
+
+        If the model exceeds the ceiling, later plans are disabled
+        rather than silently deleting findings.
+        """
+
+        if not isinstance(data, dict):
+            return data
+
+        count = 0
+
+        for section_name in (
+            "predictions",
+            "security_analysis",
+            "testing_analysis",
+        ):
+            section = data.get(section_name)
+
+            if section_name == "predictions":
+                findings = section
+            elif isinstance(section, dict):
+                findings = section.get("findings", [])
+            else:
+                findings = []
+
+            if not isinstance(findings, list):
+                continue
+
+            for finding in findings:
+                if not isinstance(finding, dict):
+                    continue
+
+                plan = finding.get("reproduction_plan")
+
+                if not isinstance(plan, dict):
+                    finding["reproduction_plan"] = {
+                        "needed": False,
+                        "failure_hypothesis": None,
+                        "objective": None,
+                        "inputs": [],
+                        "trigger_condition": None,
+                        "expected_baseline_behavior": None,
+                        "expected_head_behavior": None,
+                    }
+                    continue
+
+                needed = bool(plan.get("needed"))
+
+                if needed:
+                    count += 1
+
+                    if count > self.MAX_REPRODUCTION_PLANS:
+                        plan["needed"] = False
+                        plan["objective"] = None
+                        plan["inputs"] = []
+                        plan["expected_baseline_behavior"] = None
+                        plan["expected_head_behavior"] = None
+
+        return data
 
     @staticmethod
     def _clean_json_response(
         content: str,
     ) -> str:
+        """
+        Remove accidental Markdown/code-fence wrapping from an LLM
+        response while preserving the JSON body.
+        """
+
         content = content.strip()
 
         if content.startswith("```"):
