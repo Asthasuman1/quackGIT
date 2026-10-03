@@ -107,7 +107,7 @@ class ReproductionValidationService:
         self,
         validation: ValidationService,
         *,
-        model: str = "gemini/gemini-2.5-flash",
+        model: str = "gemini/gemini-3.8-flash",
     ):
         self.validation = validation
         self.model = model
