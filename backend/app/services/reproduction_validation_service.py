@@ -107,12 +107,12 @@ class ReproductionValidationService:
         self,
         validation: ValidationService,
         *,
-        model: str = "groq/openai/gpt-oss-120b",
+        model: str = "anthropic/claude-opus-5-5",
     ):
         self.validation = validation
         self.model = model
 
-        self.api_key = os.getenv("GROQ_API_KEY")
+        self.api_key = os.getenv("ANTHROPIC_API_KEY")
 
         self.execution_enabled = self._env_true(
             self.GENERATED_EXECUTION_ENV
@@ -120,7 +120,7 @@ class ReproductionValidationService:
 
         if not self.api_key:
             raise RuntimeError(
-                "GROQ_API_KEY environment variable is not configured."
+                "ANTHROPIC_API_KEY environment variable is not configured."
             )
 
     async def validate_reproduction_plans(
