@@ -40,14 +40,14 @@ class FailurePredictionService:
 
     def __init__(
         self,
-        model: str = "groq/openai/gpt-oss-120b",
+        model: str = "anthropic/claude-opus-5-5",
     ) -> None:
         self.model = model
-        self.api_key = os.getenv("GROQ_API_KEY")
+        self.api_key = os.getenv("ANTHROPIC_API_KEY")
 
         if not self.api_key:
             raise RuntimeError(
-                "GROQ_API_KEY environment variable is not configured."
+                "ANTHROPIC_API_KEY environment variable is not configured."
             )
 
     async def predict(
@@ -116,7 +116,7 @@ class FailurePredictionService:
             return FailurePredictionResponse.model_validate(data)
         except Exception as exc:
             raise ValueError(
-                "Groq returned JSON that does not match the "
+                "Claude returned JSON that does not match the "
                 f"quackGIT response schema: {exc}. "
                 f"Response: {content[:4000]}"
             ) from exc
