@@ -40,14 +40,14 @@ class FailurePredictionService:
 
     def __init__(
         self,
-        model: str = "anthropic/claude-opus-5-5",
+        model: str = "gemini/gemini-2.5-flash",
     ) -> None:
         self.model = model
-        self.api_key = os.getenv("ANTHROPIC_API_KEY")
+        self.api_key = os.getenv("GEMINI_API_KEY")
 
         if not self.api_key:
             raise RuntimeError(
-                "ANTHROPIC_API_KEY environment variable is not configured."
+                "GEMINI_API_KEY environment variable is not configured."
             )
 
     async def predict(

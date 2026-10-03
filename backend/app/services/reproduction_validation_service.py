@@ -107,12 +107,12 @@ class ReproductionValidationService:
         self,
         validation: ValidationService,
         *,
-        model: str = "anthropic/claude-opus-5-5",
+        model: str = "gemini/gemini-2.5-flash",
     ):
         self.validation = validation
         self.model = model
 
-        self.api_key = os.getenv("ANTHROPIC_API_KEY")
+        self.api_key = os.getenv("GEMINI_API_KEY")
 
         self.execution_enabled = self._env_true(
             self.GENERATED_EXECUTION_ENV
@@ -120,7 +120,7 @@ class ReproductionValidationService:
 
         if not self.api_key:
             raise RuntimeError(
-                "ANTHROPIC_API_KEY environment variable is not configured."
+                "GEMINI_API_KEY environment variable is not configured."
             )
 
     async def validate_reproduction_plans(
