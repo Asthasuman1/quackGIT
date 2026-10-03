@@ -1296,8 +1296,9 @@ CONTENT:
         import_patterns = [
             r"^\+\s*from\s+([A-Za-z_][\w.]*)\s+import",
             r"^\+\s*import\s+([A-Za-z_][\w.]*)",
-            r'^\+\s*require\([\'"]\([^\'"]+)[\'"]\)',
-            r'^\+\s*import\s+.*?\s+from\s+[\'"]\([^\'"]+)[\'"]',
+            r'''require\([\'"]([^\'"]+)[\'"]\)''',
+            r'^\+\s*import\s+.*?\s+from\s+[\'"]([^\'"]+)[\'"]',
+            r'^\+\s*import\s+[\'"]([^\'"]+)[\'"]',
         ]
 
         for file in changed_files:
