@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from urllib.parse import quote
+import re
 
 from github import Github
 
@@ -174,17 +175,39 @@ class GitHubService:
         """
         Return the repository tree for targeted repository-context
         discovery.
+
+        `ref` may be:
+        - an exact commit SHA
+        - a branch name
+
+        Pull-request analysis normally passes an exact HEAD SHA.
+        Exact SHAs must be used directly and must not be resolved
+        through `repo.get_branch()`.
         """
 
         repo = self.client.get_repo(repo_name)
 
         if ref is None:
-            ref = repo.default_branch
+            tree_sha = repo.get_branch(
+                repo.default_branch
+            ).commit.sha
+        else:
+            ref = str(ref).strip()
 
-        branch = repo.get_branch(ref)
+            # Exact commit SHA: use it directly.
+            if re.fullmatch(
+                r"[0-9a-fA-F]{40}",
+                ref,
+            ):
+                tree_sha = ref
+            else:
+                # Otherwise treat the value as a branch name.
+                tree_sha = repo.get_branch(
+                    ref
+                ).commit.sha
 
         tree = repo.get_git_tree(
-            branch.commit.sha,
+            tree_sha,
             recursive=True,
         )
 
