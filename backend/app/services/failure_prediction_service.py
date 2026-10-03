@@ -40,7 +40,7 @@ class FailurePredictionService:
 
     def __init__(
         self,
-        model: str = "gemini/gemini-3.8-flash",
+        model: str = "gemini/gemini-3.7-flash",
     ) -> None:
         self.model = model
         self.api_key = os.getenv("GEMINI_API_KEY")
