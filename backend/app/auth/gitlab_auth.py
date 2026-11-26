@@ -6,9 +6,13 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 import httpx
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parents[2]
+ENV_FILE = BASE_DIR / ".env"
+
+load_dotenv(ENV_FILE, override=True)
 
 GITLAB_AUTHORIZE_URL = (
     "https://gitlab.com/oauth/authorize"

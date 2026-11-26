@@ -1,0 +1,46 @@
+{
+  "name": "quackgit",
+  "displayName": "quackGIT",
+  "description": "Analyze the current VS Code file with quackGIT.",
+  "version": "0.1.0",
+  "publisher": "Astrix-26",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:quackgit.analyzeFile"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "quackgit.analyzeFile",
+        "title": "quackGIT: Analyze Current File"
+      }
+    ],
+    "configuration": {
+      "title": "quackGIT",
+      "properties": {
+        "quackgit.apiUrl": {
+          "type": "string",
+          "default": "https://quackgit.onrender.com",
+          "description": "quackGIT backend URL."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "npm run compile && npx @vscode/vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.0.0",
+    "typescript": "^5.0.0"
+  }
+}

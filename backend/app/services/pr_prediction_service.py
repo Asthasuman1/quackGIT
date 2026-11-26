@@ -71,6 +71,10 @@ class PRPredictionService:
     MAX_REFERENCE_TERMS = 20
     MAX_VALIDATION_TESTS = 5
     VALIDATION_TIMEOUT_SECONDS = 120
+    MAX_HISTORICAL_FILES = 12
+    MAX_HISTORICAL_COMMITS = 8
+    MAX_HISTORICAL_DIFF_CHARS = 4000
+    MAX_HISTORICAL_CONTEXT_CHARS = 24000
     IMPORTANT_ROOT_FILES = {
         "README.md",
         "README",
@@ -244,6 +248,18 @@ class PRPredictionService:
                     f"{context}\n\n"
                     f"{revision_evidence}"
                 )
+                
+            historical_evidence = self._build_historical_evidence(
+                changed_files=changed_files,
+                head_workspace=head_workspace.path,
+                head_sha=head_sha,
+            )
+
+            if historical_evidence.strip():
+                context = (
+                    f"{context}\n\n"
+                    f"{historical_evidence}"
+                )    
 
             if not context.strip():
                 raise ValueError(
@@ -277,19 +293,9 @@ class PRPredictionService:
                 )
             )
 
-            context = (
-                f"{context}\n\n"
-                f"{self._format_reproduction_validation(reproduction_validation)}"
-            )
-
             validation_analysis = self._run_targeted_validation(
                 test_analysis=test_analysis,
                 head_workspace=head_workspace.path,
-            )
-
-            context = (
-                f"{context}\n\n"
-                f"{self._format_behavioral_validation(validation_analysis)}"
             )
 
             final_context = self._build_final_analysis_context(
@@ -572,6 +578,35 @@ VALIDATION AND REPRODUCTION RULES
 
 - INCONCLUSIVE means the differential evidence was insufficient.
 
+
+============================================================
+
+INDEPENDENT FINDING COMPLETENESS SWEEP
+
+============================================================
+
+Perform a deliberate second review of the supplied evidence before
+finalizing the findings.
+
+- Re-examine each changed file and its BASE-versus-HEAD evidence.
+- Trace relevant callers, callees, data flow, error handling,
+  configuration, tests, and available historical fixes.
+- Look for missed boundary conditions, compatibility issues,
+  unintended side effects, and distinct regression mechanisms.
+- Do not merely repeat the initial AI findings.
+- Merge duplicate findings with the same underlying root cause.
+- For each candidate, establish the affected code, failure mechanism,
+  triggering conditions, impact, and connection to this PR.
+- Treat historical commits as context, not proof of a current defect.
+- Do not invent files, historical fixes, or execution results.
+- Preserve valid static findings when runtime validation is inconclusive.
+- Report every distinct finding that meets the existing strict
+  evidence-acceptance criteria; do not impose an arbitrary total-finding
+  cap or lower the evidence threshold to increase the count.
+
+============================================================
+
+
 ============================================================
 
 FINAL SYNTHESIS REQUIREMENTS
@@ -598,7 +633,11 @@ For each final finding:
 
 6. Use actual validation evidence when available.
 
-7. Keep NOT_TESTED when no execution occurred.
+7. Use NOT_TESTED only when no corresponding execution occurred.
+   If execution occurred but the BASE-versus-HEAD evidence is
+   insufficient, preserve the INCONCLUSIVE differential result.
+   Do not claim that a regression was observed without sufficient
+   supporting evidence.
 
 8. Do not invent missing runtime evidence.
 
@@ -606,11 +645,19 @@ For each final finding:
 
 10. Preserve the reproduction plan when it remains meaningful.
 
-11. Do not create generic reproduction plans for style-only issues,
+11. Do not treat NOT_REPRODUCED as proof that a static finding
+    is false; state that the suspected behavior was not reproduced
+    under the tested conditions.
 
-    unsupported concerns, or assumptions about unseen repository behavior.
+12. Mark a finding OBSERVED only when the supplied execution
+    evidence directly supports that finding.
 
-12. Do not infer repository behavior absent from the supplied evidence.
+13. Do not treat a successful unrelated repository test as proof
+    that a suspected regression is absent.
+
+14. Keep findings supported by static evidence when runtime
+    validation is inconclusive, but clearly distinguish them
+    from confirmed runtime failures.
 
 The reproduction validation stage determines whether a selected reproduction
 
@@ -687,6 +734,7 @@ inconclusive state.
         base_workspace = None
         head_workspace = None
 
+        
         try:
             base_workspace = (
                 self.workspace_service.create_workspace(
@@ -711,12 +759,19 @@ inconclusive state.
 
         except Exception:
             if base_workspace is not None:
-                base_workspace.cleanup()
+                try:
+                    base_workspace.cleanup()
+                except Exception:
+                    pass
 
             if head_workspace is not None:
-                head_workspace.cleanup()
+                try:
+                    head_workspace.cleanup()
+                except Exception:
+                    pass
 
             raise
+
 
     def _read_workspace_file(
         self,
@@ -862,6 +917,147 @@ PR HEAD REVISION:
             )
 
         return "\n\n".join(sections)
+    
+    
+    
+    def _build_historical_evidence(
+        self,
+        *,
+        changed_files: list[dict],
+        head_workspace: Path,
+        head_sha: str,
+    ) -> str:
+        """Collect bounded, path-specific historical evidence."""
+        sections = [
+            "============================================================",
+            "HISTORICAL REPOSITORY EVIDENCE",
+            "============================================================",
+            (
+                "Historical commits are clues, not proof of a current "
+                "defect. Verify every proposed finding against the PR."
+            ),
+        ]
+
+        seen_commit_paths: set[tuple[str, str]] = set()
+        seen_paths: set[str] = set()
+
+        total_chars = sum(len(section) for section in sections)
+        commit_count = 0
+
+        # Consider only unique, non-removed changed files.
+        changed_paths = []
+
+        for item in changed_files:
+            path = item.get("filename")
+
+            if (
+                not path
+                or item.get("status") == "removed"
+                or path in seen_paths
+            ):
+                continue
+
+            seen_paths.add(path)
+            changed_paths.append(path)
+
+            if len(changed_paths) >= self.MAX_HISTORICAL_FILES:
+                break
+
+        for path in changed_paths:
+            if (
+                commit_count >= self.MAX_HISTORICAL_COMMITS
+                or total_chars >= self.MAX_HISTORICAL_CONTEXT_CHARS
+            ):
+                break
+
+            try:
+                commits = self.workspace_service.get_historical_commits(
+                    head_workspace,
+                    limit=20,
+                    path=path,
+                )
+            except (RuntimeError, ValueError):
+                continue
+
+            for commit in commits:
+                sha = (commit.get("sha") or "").strip()
+
+                if not sha:
+                    continue
+
+                normalized_sha = sha.lower()
+                commit_path_key = (normalized_sha, path)
+
+                # The same commit may be relevant to different files.
+                # Deduplicate only repeated commit/file combinations.
+                if commit_path_key in seen_commit_paths:
+                    continue
+
+                seen_commit_paths.add(commit_path_key)
+
+                # Do not include the current PR HEAD as historical evidence.
+                if normalized_sha == (head_sha or "").strip().lower():
+                    continue
+
+                if (
+                    commit_count >= self.MAX_HISTORICAL_COMMITS
+                    or total_chars >= self.MAX_HISTORICAL_CONTEXT_CHARS
+                ):
+                    break
+
+                try:
+                    diff = self.workspace_service.get_commit_diff(
+                        head_workspace,
+                        sha,
+                        path=path,
+                        max_chars=self.MAX_HISTORICAL_DIFF_CHARS,
+                    )
+                except (RuntimeError, ValueError):
+                    diff = "(Historical diff unavailable.)"
+
+                entry = (
+                    f"\n\nCOMMIT: {sha}\n"
+                    f"DATE: {commit.get('date', 'unknown')}\n"
+                    f"AUTHOR: {commit.get('author', 'unknown')}\n"
+                    f"SUBJECT: {commit.get('subject', 'unknown')}\n"
+                    f"RELATED FILE: {path}\n"
+                    f"DIFF:\n{diff}"
+                )
+
+                remaining = (
+                    self.MAX_HISTORICAL_CONTEXT_CHARS - total_chars
+                )
+
+                if remaining <= 0:
+                    break
+
+                if len(entry) > remaining:
+                    marker = "\n[HISTORICAL ENTRY TRUNCATED]"
+
+                    if remaining <= len(marker):
+                        break
+
+                    entry = entry[:remaining - len(marker)] + marker
+
+                sections.append(entry)
+                total_chars += len(entry)
+                commit_count += 1
+
+            if (
+                commit_count >= self.MAX_HISTORICAL_COMMITS
+                or total_chars >= self.MAX_HISTORICAL_CONTEXT_CHARS
+            ):
+                break
+
+        if commit_count == 0:
+            sections.append(
+                "No usable historical commits were found. "
+                "This does not prove that no historical fixes exist."
+            )
+
+        return "\n".join(sections)
+
+
 
     def _build_repository_context(
         self,
@@ -1963,17 +2159,28 @@ RESULT:
 
 VALIDATION INTERPRETATION:
 
-- NOT_TESTED means no execution occurred.
+- NOT_TESTED means no corresponding execution occurred.
 
-- OBSERVED means executed behavior was directly observed.
+- OBSERVED means the specific behavior supporting the finding
+  was directly observed during execution.
 
-- VALIDATED means an executed test/command completed successfully.
+- VALIDATED means the relevant executed test or command completed
+  successfully. This does not, by itself, prove that a suspected
+  regression is absent.
 
-- NOT_REPRODUCED means attempted validation did not reproduce the suspected behavior.
+- NOT_REPRODUCED means an actual attempt to reproduce the suspected
+  behavior did not reproduce it under the tested conditions.
+  Do not apply this status to ordinary repository test runs unless
+  they specifically attempted to reproduce that behavior.
+
+- A successful test run does not establish that every finding is false.
 
 - Do not describe NOT_TESTED findings as proven runtime failures.
 
 - Do not infer execution merely because a test file was discovered.
+
+- Keep static findings when runtime evidence is inconclusive, but
+  distinguish static support from confirmed runtime behavior.
 
 """.strip()
         )

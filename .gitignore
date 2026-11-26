@@ -1,21 +1,48 @@
-# Environment / secrets
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+dist/
+build/
+.next/
+.DS_Store
+
+# Python virtual environments
+.venv/
+venv/
+backend/.venv/
+backend/.venv-linux/
+
+# Environment variables and secrets
 .env
 .env.*
 !.env.example
 
-# Python
+# Private keys and certificates
+*.pem
+*.key
+
+# Python cache
 __pycache__/
-*.py[cod]
-.venv/
-.venv-linux/
+*.pyc
+.pytest_cache/
 
-# Node / Next.js
-frontend/node_modules/
-frontend/.next/
+# Node dependencies and builds
+node_modules/
+.next/
+dist/
+build/
 
-# OS / editors
-.DS_Store
+# VS Code local settings
 .vscode/
-.idea/
+**/.vscode/
 
-ai-commit-platform*.pem
+# Generated VS Code extension files
+quackgit-vscode/out/
+*.vsix
+

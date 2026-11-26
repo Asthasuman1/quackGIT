@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -11,7 +12,6 @@ import {
 
 import {
   getCurrentUser,
-  getGitHubLoginUrl,
   getGitLabLoginUrl,
   logout as logoutRequest,
   type AuthUser,
@@ -26,6 +26,13 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
 }
+
+// Configure backend URL through environment variables.
+// Local development: http://localhost:8000
+// Production: configure your deployed backend URL.
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_BASE_URL || "/api/backend"
+).replace(/\/+$/, "");
 
 const AuthContext = createContext<AuthContextValue | undefined>(
   undefined
@@ -59,12 +66,14 @@ export function AuthProvider({
   }, [refreshAuth]);
 
   const loginWithGitHub = () => {
-  window.location.href = getGitHubLoginUrl();
-};
+    window.location.assign(
+      `${API_BASE_URL}/auth/github/login`
+    );
+  };
 
-const loginWithGitLab = () => {
-  window.location.href = getGitLabLoginUrl();
-};
+  const loginWithGitLab = () => {
+    window.location.assign(getGitLabLoginUrl());
+  };
 
   const logout = async () => {
     try {
@@ -77,16 +86,16 @@ const loginWithGitLab = () => {
 
   return (
     <AuthContext.Provider
-  value={{
-    user,
-    authenticated,
-    loading,
-    loginWithGitHub,
-    loginWithGitLab,
-    logout,
-    refreshAuth,
-  }}
->
+      value={{
+        user,
+        authenticated,
+        loading,
+        loginWithGitHub,
+        loginWithGitLab,
+        logout,
+        refreshAuth,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

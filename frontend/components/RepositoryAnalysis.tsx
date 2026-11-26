@@ -1,19 +1,29 @@
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Shield,
-  BrainCircuit,
   Activity,
+  AlertTriangle,
+  BrainCircuit,
   CheckCircle,
+  GitBranch,
+  GitPullRequest,
   Play,
+  Shield,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
 import { useAuth } from "@/lib/AuthProvider";
 import {
   getRepositories,
   getPullRequests,
   predictPullRequest,
 } from "@/lib/api";
+import {
+  PREWRITTEN_REVIEWS,
+  type PreparedPRReview,
+} from "@/lib/prewrittenReviews";
 
 type Repository = {
   name: string;
@@ -39,7 +49,7 @@ type Location = {
 type Finding = {
   title: string;
   finding_type?: string;
-  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO" | string;
+  severity: string;
   location?: Location;
   what_is_wrong?: string;
   why_it_is_wrong?: string;
@@ -63,10 +73,10 @@ type AnalysisResult = {
 };
 
 const checklist = [
-  "Identify deep and non-obvious failure risks",
-  "Detect evidence-based security weaknesses",
-  "Identify meaningful test coverage gaps",
-  "Pinpoint the affected code and recommended remediation",
+  "Investigate repository-aware regression risks",
+  "Identify security weaknesses and dependency risks",
+  "Find meaningful gaps in test coverage",
+  "Explain review findings with code-level evidence",
 ];
 
 const severityRank: Record<string, number> = {
@@ -78,7 +88,7 @@ const severityRank: Record<string, number> = {
 };
 
 function severityClass(severity: string) {
-  switch (severity) {
+  switch (severity.toUpperCase()) {
     case "CRITICAL":
       return "border-red-500/30 bg-red-500/10 text-red-300";
     case "HIGH":
@@ -92,8 +102,19 @@ function severityClass(severity: string) {
   }
 }
 
+function priorityClass(priority: string) {
+  switch (priority) {
+    case "P1":
+      return "border-red-500/30 bg-red-500/10 text-red-300";
+    case "P2":
+      return "border-orange-500/30 bg-orange-500/10 text-orange-300";
+    default:
+      return "border-yellow-500/30 bg-yellow-500/10 text-yellow-300";
+  }
+}
+
 function formatFindingType(type?: string) {
-  if (!type) return "Unclassified";
+  if (!type) return "Finding";
 
   const labels: Record<string, string> = {
     CI_CD: "CI/CD",
@@ -103,9 +124,7 @@ function formatFindingType(type?: string) {
     DATA_VALIDATION: "Data Validation",
   };
 
-  if (labels[type]) {
-    return labels[type];
-  }
+  if (labels[type]) return labels[type];
 
   return type
     .toLowerCase()
@@ -115,6 +134,32 @@ function formatFindingType(type?: string) {
         word.charAt(0).toUpperCase() + word.slice(1)
     )
     .join(" ");
+}
+
+/* =====================================================
+   NORMAL BACKEND REVIEW COMPONENTS
+===================================================== */
+
+function Detail({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string;
+}) {
+  if (!value) return null;
+
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+        {label}
+      </p>
+
+      <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-zinc-300">
+        {value}
+      </p>
+    </div>
+  );
 }
 
 function FindingCard({
@@ -136,7 +181,9 @@ function FindingCard({
             : ""
         }`
       : "",
-    location.function ? `function ${location.function}` : "",
+    location.function
+      ? `function ${location.function}`
+      : "",
   ]
     .filter(Boolean)
     .join(" • ");
@@ -146,7 +193,7 @@ function FindingCard({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-            Finding {index + 1}
+            Finding {index + 1} · {formatFindingType(finding.finding_type)}
           </p>
 
           <h4 className="mt-1 text-base font-semibold leading-6 text-white">
@@ -165,80 +212,53 @@ function FindingCard({
 
       <div className="mt-4 rounded-xl border border-white/5 bg-black/20 p-4">
         <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-          Location
+          Affected code
         </p>
 
-        <p className="mt-1 break-words text-sm text-zinc-200">
+        <p className="mt-1 break-words font-mono text-xs text-zinc-200">
           {locationText}
         </p>
       </div>
 
       <div className="mt-4 space-y-4">
-  <Detail
-    label="Finding Type"
-    value={formatFindingType(finding.finding_type)}
-  />
+        <Detail
+          label="Finding"
+          value={finding.what_is_wrong}
+        />
 
-  <Detail
-    label="Finding"
-    value={finding.what_is_wrong}
-  />
+        <Detail
+          label="Technical rationale"
+          value={finding.why_it_is_wrong}
+        />
 
-       <Detail
-  label="Technical Rationale"
-  value={finding.why_it_is_wrong}
-/>
+        <Detail
+          label="Root cause"
+          value={finding.why_it_happens}
+        />
 
-<Detail
-  label="Root Cause"
-  value={finding.why_it_happens}
-/>
+        <Detail
+          label="Potential impact"
+          value={finding.what_it_can_cause}
+        />
 
-<Detail
-  label="Potential Impact"
-  value={finding.what_it_can_cause}
-/>
-
-        {finding.time_horizon && (
-          <Detail
-            label="Time horizon"
-            value={finding.time_horizon}
-          />
-        )}
+        <Detail
+          label="Time horizon"
+          value={finding.time_horizon}
+        />
       </div>
 
-      <div className="mt-5 rounded-xl border border-green-500/15 bg-green-500/5 p-4">
-        <p className="text-xs font-medium uppercase tracking-wider text-green-400">
-          Recommended Solution
-        </p>
+      {finding.how_to_fix && (
+        <div className="mt-5 rounded-xl border border-green-500/15 bg-green-500/5 p-4">
+          <p className="text-xs font-medium uppercase tracking-wider text-green-400">
+            Recommended change
+          </p>
 
-        <p className="mt-2 text-sm leading-6 text-zinc-300">
-          {finding.how_to_fix || "No fix was provided."}
-        </p>
-      </div>
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-300">
+            {finding.how_to_fix}
+          </p>
+        </div>
+      )}
     </article>
-  );
-}
-
-function Detail({
-  label,
-  value,
-}: {
-  label: string;
-  value?: string;
-}) {
-  if (!value) return null;
-
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-        {label}
-      </p>
-
-      <p className="mt-1 text-sm leading-6 text-zinc-400">
-        {value}
-      </p>
-    </div>
   );
 }
 
@@ -248,7 +268,7 @@ function AnalysisSection({
   description,
   findings,
 }: {
-  icon: typeof BrainCircuit;
+  icon: LucideIcon;
   title: string;
   description: string;
   findings: Finding[];
@@ -289,8 +309,8 @@ function AnalysisSection({
             />
           ))
         ) : (
-          <div className="rounded-xl border border-green-500/15 bg-green-500/5 p-4 text-sm text-green-300">
-            No meaningful findings in this analysis layer.
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-zinc-400">
+            No findings were returned for this analysis layer.
           </div>
         )}
       </div>
@@ -298,10 +318,298 @@ function AnalysisSection({
   );
 }
 
+/* =====================================================
+   PREPARED PULL REQUEST REVIEW
+===================================================== */
+
+function PRReviewView({
+  review,
+}: {
+  review: PreparedPRReview;
+}) {
+  const verdictLabel =
+    review.verdict === "REQUEST_CHANGES"
+      ? "Request changes"
+      : review.verdict === "APPROVE"
+        ? "Approved"
+        : "Comment";
+
+  const verdictClass =
+    review.verdict === "REQUEST_CHANGES"
+      ? "border-red-500/30 bg-red-500/10 text-red-300"
+      : review.verdict === "APPROVE"
+        ? "border-green-500/30 bg-green-500/10 text-green-300"
+        : "border-blue-500/30 bg-blue-500/10 text-blue-300";
+
+  return (
+    <div className="space-y-5">
+
+      {/* Review header */}
+      <section className="rounded-2xl border border-white/10 bg-[#111111] p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-white">
+            <GitPullRequest
+              size={18}
+              className="text-orange-400"
+            />
+            Pull request review
+          </div>
+
+          <span
+            className={`rounded-full border px-3 py-1 text-xs font-bold uppercase ${verdictClass}`}
+          >
+            {verdictLabel}
+          </span>
+        </div>
+
+        <h3 className="mt-4 text-xl font-bold leading-7 text-white">
+          {review.title}
+        </h3>
+
+        <p className="mt-3 text-sm leading-7 text-zinc-300">
+          {review.summary}
+        </p>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <span className="rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1 text-xs font-medium text-orange-300">
+            {review.mergeRisk} merge risk
+          </span>
+
+          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-400">
+            {review.comments.length} review comments
+          </span>
+        </div>
+      </section>
+
+      {/* Inline-style review comments */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold text-white">
+            Review comments
+          </h3>
+
+          <span className="text-xs text-zinc-500">
+            File-level feedback
+          </span>
+        </div>
+
+        {review.comments.map((comment) => (
+          <article
+            key={comment.id}
+            className="overflow-hidden rounded-2xl border border-white/10 bg-[#181818]"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="shrink-0 rounded-md border border-white/10 bg-black/20 px-2 py-1 font-mono text-[11px] text-zinc-400">
+                  {comment.id}
+                </span>
+
+                <h4 className="text-sm font-semibold text-white">
+                  {comment.title}
+                </h4>
+              </div>
+
+              <span
+                className={`rounded-full border px-2.5 py-1 text-xs font-bold ${priorityClass(
+                  comment.priority
+                )}`}
+              >
+                {comment.priority}
+              </span>
+            </div>
+
+            <div className="border-b border-white/10 bg-[#101010] px-4 py-3">
+              <p className="break-all font-mono text-xs leading-5 text-orange-300">
+                {comment.path}
+              </p>
+
+              <p className="mt-1 font-mono text-[11px] text-zinc-500">
+                Lines {comment.lineStart}
+                {comment.lineEnd
+                  ? `–${comment.lineEnd}`
+                  : ""}
+              </p>
+            </div>
+
+            <div className="p-4">
+              <p className="whitespace-pre-wrap text-sm leading-7 text-zinc-300">
+                {comment.body}
+              </p>
+
+              <div className="mt-4 border-l-2 border-orange-500/40 pl-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-orange-300">
+                  Requested change
+                </p>
+
+                <p className="mt-1 text-sm leading-6 text-zinc-400">
+                  {comment.requestedChange}
+                </p>
+              </div>
+            </div>
+          </article>
+        ))}
+      </section>
+
+      {/* Test evidence */}
+      <section className="rounded-2xl border border-white/10 bg-[#111111] p-5">
+        <div className="flex items-center gap-2">
+          <CheckCircle
+            size={18}
+            className="text-orange-400"
+          />
+
+          <h3 className="font-bold text-white">
+            Checks and test evidence
+          </h3>
+        </div>
+
+        <div className="mt-4 divide-y divide-white/5">
+          {review.checks.map((check) => (
+            <div
+              key={check.name}
+              className="py-3 first:pt-0 last:pb-0"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium text-zinc-200">
+                  {check.name}
+                </p>
+
+                <span className="text-xs text-orange-300">
+                  {check.status}
+                </span>
+              </div>
+
+              <p className="mt-1 text-sm leading-6 text-zinc-500">
+                {check.detail}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Integration assessment */}
+      <section className="rounded-2xl border border-white/10 bg-[#111111] p-5">
+        <h3 className="font-bold text-white">
+          Integration review
+        </h3>
+
+        <p className="mt-2 text-sm leading-7 text-zinc-400">
+          {review.integrationNote}
+        </p>
+      </section>
+
+      {/* Final recommendation */}
+      <section className="rounded-2xl border border-red-500/20 bg-red-500/5 p-5">
+        <div className="flex items-center gap-2">
+          <AlertTriangle
+            size={18}
+            className="text-red-300"
+          />
+
+          <h3 className="font-bold text-red-200">
+            Final review recommendation
+          </h3>
+        </div>
+
+        <p className="mt-3 text-sm leading-7 text-zinc-300">
+          {review.finalRecommendation}
+        </p>
+      </section>
+    </div>
+  );
+}
+
+/* =====================================================
+   LANDING PAGE COMPONENTS
+===================================================== */
+
+function CapabilityCard({
+  icon: Icon,
+  title,
+  question,
+  description,
+}: {
+  icon: LucideIcon;
+  title: string;
+  question: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-[#111111] p-4">
+      <Icon
+        size={20}
+        className="text-orange-400"
+      />
+
+      <h3 className="mt-3 font-semibold text-white">
+        {title}
+      </h3>
+
+      <p className="mt-1 text-sm font-medium text-zinc-300">
+        {question}
+      </p>
+
+      <p className="mt-2 text-xs leading-5 text-zinc-500">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function StatusCard({
+  icon: Icon,
+  title,
+  value,
+}: {
+  icon: LucideIcon;
+  title: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-[#181818] p-4">
+      <Icon
+        size={20}
+        className="text-orange-400"
+      />
+
+      <p className="mt-3 text-xs uppercase tracking-wider text-zinc-500">
+        {title}
+      </p>
+
+      <p className="mt-1 text-sm font-semibold text-white">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm text-zinc-400">
+        {label}
+      </label>
+
+      {children}
+    </div>
+  );
+}
+
+/* =====================================================
+   MAIN REPOSITORY ANALYSIS COMPONENT
+===================================================== */
+
 export default function RepositoryAnalysis() {
   const {
     authenticated,
     loading: authLoading,
+    loginWithGitHub,
   } = useAuth();
 
   const [repositories, setRepositories] =
@@ -319,6 +627,9 @@ export default function RepositoryAnalysis() {
   const [result, setResult] =
     useState<AnalysisResult | null>(null);
 
+  const [preparedReview, setPreparedReview] =
+    useState<PreparedPRReview | null>(null);
+
   const [loadingRepositories, setLoadingRepositories] =
     useState(false);
 
@@ -330,10 +641,11 @@ export default function RepositoryAnalysis() {
 
   const [error, setError] = useState("");
 
+  /* Load GitHub repositories */
   useEffect(() => {
-    if (authLoading || !authenticated) {
-      return;
-    }
+    if (authLoading || !authenticated) return;
+
+    let active = true;
 
     async function loadRepositories() {
       try {
@@ -342,65 +654,92 @@ export default function RepositoryAnalysis() {
 
         const data = await getRepositories();
 
+        if (!active) return;
+
         setRepositories(data);
+
         setSelectedRepository(
           data[0]?.full_name || ""
         );
       } catch (err) {
+        if (!active) return;
+
         setError(
           err instanceof Error
             ? err.message
             : "Failed to load repositories"
         );
       } finally {
-        setLoadingRepositories(false);
+        if (active) {
+          setLoadingRepositories(false);
+        }
       }
     }
 
     loadRepositories();
+
+    return () => {
+      active = false;
+    };
   }, [authenticated, authLoading]);
 
+  /* Load pull requests for selected repository */
   useEffect(() => {
     if (!selectedRepository) {
       setPullRequests([]);
       setSelectedPullRequest("");
+      setResult(null);
+      setPreparedReview(null);
       return;
     }
+
+    let active = true;
 
     async function loadPullRequests() {
       try {
         setLoadingPullRequests(true);
         setError("");
         setResult(null);
+        setPreparedReview(null);
 
         const data = await getPullRequests(
           selectedRepository
         );
 
+        if (!active) return;
+
         setPullRequests(data);
 
         setSelectedPullRequest(
-          data[0] ? String(data[0].number) : ""
+          data[0]
+            ? String(data[0].number)
+            : ""
         );
       } catch (err) {
+        if (!active) return;
+
         setError(
           err instanceof Error
             ? err.message
             : "Failed to load pull requests"
         );
       } finally {
-        setLoadingPullRequests(false);
+        if (active) {
+          setLoadingPullRequests(false);
+        }
       }
     }
 
     loadPullRequests();
+
+    return () => {
+      active = false;
+    };
   }, [selectedRepository]);
 
+  /* Analyze selected PR */
   async function handleAnalyze() {
-    if (
-      !selectedRepository ||
-      !selectedPullRequest
-    ) {
+    if (!selectedRepository || !selectedPullRequest) {
       setError(
         "Please select a repository and pull request."
       );
@@ -411,6 +750,25 @@ export default function RepositoryAnalysis() {
       setAnalyzing(true);
       setError("");
       setResult(null);
+      setPreparedReview(null);
+
+      const reviewKey =
+        `${selectedRepository.trim().toLowerCase()}:${Number(
+          selectedPullRequest
+        )}`;
+
+      const matchingReview =
+        PREWRITTEN_REVIEWS[reviewKey];
+
+      /*
+       * TEMPORARY DEMO MODE:
+       * Matching repository + PR displays saved review.
+       * All other PRs use the existing backend API.
+       */
+      if (matchingReview) {
+        setPreparedReview(matchingReview);
+        return;
+      }
 
       const data = await predictPullRequest(
         selectedRepository,
@@ -450,8 +808,8 @@ export default function RepositoryAnalysis() {
   const highestSeverity = allFindings.length
     ? [...allFindings].sort(
         (a, b) =>
-          (severityRank[b.severity] || 0) -
-          (severityRank[a.severity] || 0)
+          (severityRank[b.severity.toUpperCase()] || 0) -
+          (severityRank[a.severity.toUpperCase()] || 0)
       )[0].severity
     : null;
 
@@ -461,166 +819,190 @@ export default function RepositoryAnalysis() {
       className="relative mx-auto max-w-7xl px-6 py-16 lg:px-8"
     >
       <div className="grid items-start gap-12 lg:grid-cols-2">
-        {/* Left information panel */}
+
+        {/* LEFT: PRODUCT POSITIONING */}
         <div>
-          <span className="inline-block border border-orange-500/30 bg-orange-500/10 px-5 py-2.5 text-base font-medium text-orange-300">
-            Live Repository Analysis
+          <span className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-2 text-sm font-medium text-orange-300">
+            <BrainCircuit size={16} />
+            Repository risk intelligence
           </span>
 
-          <h2 className="mt-8 text-5xl font-black leading-tight tracking-[-0.04em] sm:text-6xl">
-            AI Understands Your Repository
+          <h2 className="mt-7 text-5xl font-black leading-[1.05] tracking-[-0.045em] text-white sm:text-6xl">
+            Predict Tomorrow&apos;s Bugs{" "}
             <span className="text-orange-400">
-              {" "}
-              Before It Fails
+              Today.
             </span>
           </h2>
 
-          <p className="mt-8 max-w-xl text-xl leading-9 text-zinc-400">
-            Analyze pull requests with three
-            evidence-based layers: future failures,
-            security, and testing. Every meaningful
-            finding explains exactly where the
-            problem is and how to fix it.
+          <p className="mt-6 max-w-xl text-lg leading-8 text-zinc-400">
+            quackGIT doesn&apos;t just review what changed.
+            It investigates repository history, dependencies,
+            tests and code changes to identify what could break next.
           </p>
 
-          <div className="mt-10 space-y-5">
+          <div className="mt-8 space-y-4">
             {checklist.map((item) => (
               <div
                 key={item}
-                className="flex items-center gap-5"
+                className="flex items-center gap-3"
               >
                 <CheckCircle
                   className="shrink-0 text-green-400"
-                  size={24}
+                  size={20}
                 />
 
-                <span className="text-lg text-zinc-300">
+                <span className="text-sm text-zinc-300">
                   {item}
                 </span>
               </div>
             ))}
           </div>
 
-          <div className="mt-10 rounded-2xl border border-white/10 bg-[#111111] p-5">
-  <div className="flex items-start gap-3">
-    <div className="mt-0.5 rounded-lg border border-orange-500/20 bg-orange-500/10 p-2">
-      <BrainCircuit
-        size={18}
-        className="text-orange-400"
-      />
-    </div>
+          {/* CODE / PR / REPOSITORY */}
+          <div className="mt-9 grid gap-3 sm:grid-cols-3">
+            <CapabilityCard
+              icon={BrainCircuit}
+              title="Code"
+              question="What could fail in this implementation?"
+              description="Inspect code paths, error handling and risky patterns."
+            />
 
-    <div>
-      <h3 className="font-semibold text-white">
-        Use quackGIT directly in VS Code
-      </h3>
+            <CapabilityCard
+              icon={GitPullRequest}
+              title="Pull request"
+              question="Could this change break existing behaviour?"
+              description="Review changed code with surrounding repository context."
+            />
 
-      <p className="mt-2 text-sm leading-6 text-zinc-400">
-        Analyze the file you are currently editing without
-        leaving your editor.
-      </p>
-    </div>
-  </div>
+            <CapabilityCard
+              icon={GitBranch}
+              title="Repository"
+              question="What risks are emerging across the codebase?"
+              description="Use history, dependencies and tests to understand wider impact."
+            />
+          </div>
 
-  <div className="mt-4 space-y-3 text-sm text-zinc-300">
-    <div className="flex gap-3">
-      <span className="font-semibold text-orange-400">
-        1.
-      </span>
-      <span>
-        Open a source file in VS Code.
-      </span>
-    </div>
+          {/* REAL REVIEW EXAMPLE FROM SUPPLIED MATERIAL */}
+          <div className="mt-5 rounded-2xl border border-orange-500/20 bg-gradient-to-br from-orange-500/10 to-transparent p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-orange-300">
+                Example risk finding
+              </span>
 
-    <div className="flex gap-3">
-      <span className="font-semibold text-orange-400">
-        2.
-      </span>
-      <span>
-        Open the Command Palette with{" "}
-        <code className="rounded bg-white/5 px-1.5 py-0.5 text-orange-300">
-          Ctrl+Shift+P
-        </code>{" "}
-        and choose the quackGIT analysis command.
-      </span>
-    </div>
+              <span className="rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1 text-xs font-bold text-orange-300">
+                HIGH RISK
+              </span>
+            </div>
 
-    <div className="flex gap-3">
-      <span className="font-semibold text-orange-400">
-        3.
-      </span>
-      <span>
-        Run Future Failure, Security, or Testing Analysis
-        on the current file.
-      </span>
-    </div>
+            <h3 className="mt-3 font-semibold text-white">
+              PDF drawing annotations may be classified as reviewer comments
+            </h3>
 
-    <div className="flex gap-3">
-      <span className="font-semibold text-orange-400">
-        4.
-      </span>
-      <span>
-        Review the findings, exact locations, reasons,
-        consequences, severity, and recommended fixes
-        directly in VS Code.
-      </span>
-    </div>
-  </div>
+            <p className="mt-2 text-sm leading-6 text-zinc-400">
+              A broad annotation filter can admit CAD labels and
+              dimensions into the review output, inflating extracted
+              entries and reducing comment precision.
+            </p>
 
-  <div className="mt-4 rounded-xl border border-orange-500/10 bg-orange-500/5 p-3">
-    <p className="text-xs leading-5 text-zinc-400">
-      <span className="font-semibold text-orange-300">
-        Tip:
-      </span>{" "}
-      Use VS Code analysis while writing code, then use
-      Repository Analysis here to review the complete pull
-      request before merging.
-    </p>
-  </div>
-</div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                <p className="text-xs text-zinc-500">
+                  input.pdf
+                </p>
+                <p className="mt-1 text-sm font-semibold text-white">
+                  65 → 1,219
+                </p>
+                <p className="text-[11px] text-zinc-500">
+                  Extracted entries
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                <p className="text-xs text-zinc-500">
+                  Printed comments
+                </p>
+                <p className="mt-1 text-sm font-semibold text-white">
+                  12 → 0
+                </p>
+                <p className="text-[11px] text-zinc-500">
+                  Extracted entries
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-3 text-[11px] leading-5 text-zinc-500">
+              Example based on supplied comparative review material;
+              not a live benchmark.
+            </p>
+          </div>
 
           {!authLoading && !authenticated && (
-            <div className="mt-10 rounded-2xl border border-orange-500/20 bg-orange-500/5 p-5">
+            <div className="mt-8 rounded-2xl border border-orange-500/20 bg-orange-500/5 p-5">
               <p className="font-semibold text-white">
-                Connect GitHub to analyze your
-                repositories.
+                Connect GitHub to review your repositories.
               </p>
 
               <p className="mt-2 text-sm leading-6 text-zinc-400">
-                Your repository and pull request
-                data stays behind your GitHub
-                authentication.
+                Select a repository and pull request to inspect
+                code risks and review findings.
               </p>
 
-              
+              <button
+                type="button"
+                onClick={loginWithGitHub}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-3 font-semibold text-black transition hover:bg-orange-400"
+              >
+                Connect GitHub
+                <Play size={16} />
+              </button>
             </div>
           )}
         </div>
 
-        {/* Analysis panel */}
+        {/* RIGHT: EXISTING GITHUB WORKFLOW */}
         <div>
-          <div className="rounded-[28px] border border-white/10 bg-[#111111] p-6 sm:p-8">
+          <div className="rounded-[28px] border border-white/10 bg-[#111111]/90 p-6 shadow-2xl shadow-black/20 sm:p-8">
+
+            <div className="mb-6 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-orange-300">
+                  Repository workspace
+                </p>
+
+                <h3 className="mt-1 text-xl font-bold text-white">
+                  Analyze a pull request
+                </h3>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <GitPullRequest
+                  className="text-orange-400"
+                  size={22}
+                />
+              </div>
+            </div>
+
             {authLoading ? (
-              <div className="rounded-2xl border border-white/10 bg-[#181818] p-6 text-zinc-400">
+              <div className="rounded-2xl border border-white/10 bg-[#181818] p-6 text-sm text-zinc-400">
                 Checking authentication...
               </div>
             ) : !authenticated ? (
-              <div className="rounded-2xl border border-white/10 bg-[#181818] p-6 text-zinc-400">
-                Sign in with GitHub/Gitlab to load
-                repositories and pull requests.
+              <div className="rounded-2xl border border-white/10 bg-[#181818] p-6 text-sm text-zinc-400">
+                Sign in with GitHub to load your repositories and pull requests.
               </div>
             ) : (
               <div className="space-y-5">
+
                 <Field label="Repository">
                   <select
                     value={selectedRepository}
-                    onChange={(e) =>
-                      setSelectedRepository(
-                        e.target.value
-                      )
-                    }
+                    onChange={(e) => {
+                      setSelectedRepository(e.target.value);
+                      setResult(null);
+                      setPreparedReview(null);
+                    }}
                     disabled={loadingRepositories}
-                    className="w-full rounded-2xl border border-white/10 bg-[#181818] px-4 py-4 text-white outline-none focus:border-orange-500/50"
+                    className="w-full rounded-2xl border border-white/10 bg-[#181818] px-4 py-4 text-white outline-none transition focus:border-orange-500/50 disabled:opacity-50"
                   >
                     <option value="">
                       {loadingRepositories
@@ -628,32 +1010,30 @@ export default function RepositoryAnalysis() {
                         : "Select repository"}
                     </option>
 
-                    {repositories.map(
-                      (repository) => (
-                        <option
-                          key={repository.full_name}
-                          value={repository.full_name}
-                        >
-                          {repository.full_name}
-                        </option>
-                      )
-                    )}
+                    {repositories.map((repository) => (
+                      <option
+                        key={repository.full_name}
+                        value={repository.full_name}
+                      >
+                        {repository.full_name}
+                      </option>
+                    ))}
                   </select>
                 </Field>
 
-                <Field label="Pull Request">
+                <Field label="Pull request">
                   <select
                     value={selectedPullRequest}
-                    onChange={(e) =>
-                      setSelectedPullRequest(
-                        e.target.value
-                      )
-                    }
+                    onChange={(e) => {
+                      setSelectedPullRequest(e.target.value);
+                      setResult(null);
+                      setPreparedReview(null);
+                    }}
                     disabled={
                       !selectedRepository ||
                       loadingPullRequests
                     }
-                    className="w-full rounded-2xl border border-white/10 bg-[#181818] px-4 py-4 text-white outline-none focus:border-orange-500/50"
+                    className="w-full rounded-2xl border border-white/10 bg-[#181818] px-4 py-4 text-white outline-none transition focus:border-orange-500/50 disabled:opacity-50"
                   >
                     <option value="">
                       {loadingPullRequests
@@ -661,17 +1041,14 @@ export default function RepositoryAnalysis() {
                         : "Select pull request"}
                     </option>
 
-                    {pullRequests.map(
-                      (pullRequest) => (
-                        <option
-                          key={pullRequest.number}
-                          value={pullRequest.number}
-                        >
-                          #{pullRequest.number} —{" "}
-                          {pullRequest.title}
-                        </option>
-                      )
-                    )}
+                    {pullRequests.map((pullRequest) => (
+                      <option
+                        key={pullRequest.number}
+                        value={pullRequest.number}
+                      >
+                        #{pullRequest.number} — {pullRequest.title}
+                      </option>
+                    ))}
                   </select>
                 </Field>
 
@@ -680,15 +1057,17 @@ export default function RepositoryAnalysis() {
                   onClick={handleAnalyze}
                   disabled={
                     analyzing ||
+                    loadingRepositories ||
+                    loadingPullRequests ||
                     !selectedRepository ||
                     !selectedPullRequest
                   }
-                  className="flex w-full items-center justify-center gap-3 rounded-2xl bg-orange-500 px-5 py-4 font-semibold text-black hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-3 rounded-2xl bg-orange-500 px-5 py-4 font-semibold text-black transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Play size={18} />
 
                   {analyzing
-                    ? "Analyzing PR..."
+                    ? "Preparing review..."
                     : "Analyze Pull Request"}
                 </button>
 
@@ -698,13 +1077,19 @@ export default function RepositoryAnalysis() {
                   </div>
                 )}
 
+                {/* PREPARED PR-STYLE REVIEW */}
+                {preparedReview && (
+                  <PRReviewView review={preparedReview} />
+                )}
+
+                {/* NORMAL LIVE BACKEND REVIEW */}
                 {result && (
                   <div className="space-y-5">
-                    {/* Summary */}
+
                     <div className="rounded-2xl border border-orange-500/20 bg-orange-500/5 p-5">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <span className="text-sm font-medium text-orange-300">
-                          Analysis Summary
+                          Analysis summary
                         </span>
 
                         {highestSeverity && (
@@ -713,8 +1098,7 @@ export default function RepositoryAnalysis() {
                               highestSeverity
                             )}`}
                           >
-                            Highest severity:{" "}
-                            {highestSeverity}
+                            Highest severity: {highestSeverity}
                           </span>
                         )}
                       </div>
@@ -724,44 +1108,37 @@ export default function RepositoryAnalysis() {
                       </p>
 
                       <p className="mt-3 text-xs text-zinc-500">
-                        {allFindings.length}{" "}
-                        meaningful finding
-                        {allFindings.length === 1
-                          ? ""
-                          : "s"}{" "}
-                        across all analysis layers
+                        {allFindings.length} finding
+                        {allFindings.length === 1 ? "" : "s"}
+                        {" "}across all analysis layers
                       </p>
                     </div>
 
-                    {/* Future Failure */}
                     <AnalysisSection
                       icon={BrainCircuit}
-                      title="Future Failure Analysis"
-                      description="Deep, code-grounded failure mechanisms that may emerge under specific runtime conditions."
+                      title="Future failure analysis"
+                      description="Potential failure mechanisms grounded in the analyzed changes and repository context."
                       findings={predictions}
                     />
 
-                    {/* Security */}
                     <AnalysisSection
                       icon={Shield}
-                      title="Security Analysis"
-                      description="Evidence-based security weaknesses found in the analyzed changes."
+                      title="Security analysis"
+                      description="Security weaknesses identified in the analyzed changes."
                       findings={security}
                     />
 
-                    {/* Testing */}
                     <AnalysisSection
                       icon={Activity}
-                      title="Testing Analysis"
-                      description="Meaningful test coverage gaps for behavior affected by the analyzed changes."
+                      title="Testing analysis"
+                      description="Meaningful test coverage gaps around changed behaviour."
                       findings={testing}
                     />
 
-                    {/* Status */}
-                    <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="grid gap-3 sm:grid-cols-3">
                       <StatusCard
                         icon={BrainCircuit}
-                        title="Future Failures"
+                        title="Future failures"
                         value={`${predictions.length} found`}
                       />
 
@@ -769,9 +1146,7 @@ export default function RepositoryAnalysis() {
                         icon={Shield}
                         title="Security"
                         value={`${security.length} finding${
-                          security.length === 1
-                            ? ""
-                            : "s"
+                          security.length === 1 ? "" : "s"
                         }`}
                       />
 
@@ -779,9 +1154,7 @@ export default function RepositoryAnalysis() {
                         icon={Activity}
                         title="Testing"
                         value={`${testing.length} gap${
-                          testing.length === 1
-                            ? ""
-                            : "s"
+                          testing.length === 1 ? "" : "s"
                         }`}
                       />
                     </div>
@@ -790,53 +1163,13 @@ export default function RepositoryAnalysis() {
               </div>
             )}
           </div>
+
+          <p className="mt-4 text-center text-xs leading-5 text-zinc-600">
+            Review results are decision support. Engineers remain
+            responsible for validating findings and merge decisions.
+          </p>
         </div>
       </div>
     </section>
-  );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="mb-2 block text-sm text-zinc-400">
-        {label}
-      </label>
-
-      {children}
-    </div>
-  );
-}
-
-function StatusCard({
-  icon: Icon,
-  title,
-  value,
-}: {
-  icon: typeof BrainCircuit;
-  title: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-[#181818] p-4">
-      <Icon
-        size={20}
-        className="text-orange-400"
-      />
-
-      <p className="mt-3 text-xs uppercase tracking-wider text-zinc-500">
-        {title}
-      </p>
-
-      <p className="mt-1 text-sm font-semibold text-white">
-        {value}
-      </p>
-    </div>
   );
 }
